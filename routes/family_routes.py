@@ -1,0 +1,154 @@
+#! python3
+"""
+pyRevit Routes — Family and type endpoints.
+Runs INSIDE Revit. Registered in startup.py.
+"""
+
+from __future__ import annotations
+
+import clr
+clr.AddReference("RevitAPI")
+
+from Autodesk.Revit.DB import (
+    ElementId,
+    ElementTransformUtils,
+    Family,
+    FamilyInstance,
+    FamilySymbol,
+    FilteredElementCollector,
+    Level,
+    Line,
+    StructuralType,
+    Transaction,
+    XYZ,
+)
+import math
+from pyrevit.routes import API, Response
+
+_uidoc = getattr(__revit__, "ActiveUIDocument", None)
+doc = _uidoc.Document if _uidoc else None  # resolved at load; reload extension with your model open
+
+
+def _get_routes(api: API) -> None:
+
+    @api.route("/revit/families/categories", methods=["GET"])
+    def list_family_categories():
+        families = FilteredElementCollector(doc).OfClass(Family).ToElements()
+        cats = {}
+        for fam in families:
+            cat = fam.FamilyCategory
+            cat_name = cat.Name if cat else "Unknown"
+            cats[cat_name] = cats.get(cat_name, 0) + 1
+        return Response(data=[{"category": k, "family_count": v} for k, v in sorted(cats.items())])
+
+    @api.route("/revit/families", methods=["GET"])
+    def list_families(request):
+        category_filter = request.params.get("category")
+        search = request.params.get("search", "").lower()
+        families = FilteredElementCollector(doc).OfClass(Family).ToElements()
+        results = []
+        for fam in families:
+            if category_filter:
+                cat = fam.FamilyCategory
+                if not cat or cat.Name != category_filter:
+                    continue
+            if search and search not in fam.Name.lower():
+                continue
+            type_count = fam.GetFamilySymbolIds().Count
+            results.append({
+                "family_name": fam.Name,
+                "category": fam.FamilyCategory.Name if fam.FamilyCategory else None,
+                "is_system_family": fam.IsSystemFamily,
+                "is_in_place": fam.IsInPlace,
+                "type_count": type_count,
+                "element_id": fam.Id.IntegerValue,
+            })
+        return Response(data=results)
+
+    @api.route("/revit/families/types", methods=["GET"])
+    def list_family_types(request):
+        family_name = request.params.get("family_name")
+        families = FilteredElementCollector(doc).OfClass(Family).ToElements()
+        target = next((f for f in families if f.Name == family_name), None)
+        if target is None:
+            return Response(status_code=404, data={"error": f"Family '{family_name}' not found"})
+        results = []
+        for type_id in target.GetFamilySymbolIds():
+            sym = doc.GetElement(type_id)
+            if sym:
+                results.append({
+                    "type_name": sym.Name,
+                    "element_id": sym.Id.IntegerValue,
+                    "is_active": sym.IsActive,
+                })
+        return Response(data=results)
+
+    @api.route("/revit/families/place", methods=["POST"])
+    def place_family(request):
+        body = request.data
+        family_name = body.get("family_name")
+        type_name = body.get("type_name")
+        x = body.get("x", 0)
+        y = body.get("y", 0)
+        z = body.get("z", 0)
+        rotation = body.get("rotation_degrees", 0)
+        level_name = body.get("level_name")
+        host_id = body.get("host_element_id")
+
+        # Find the symbol
+        symbols = FilteredElementCollector(doc).OfClass(FamilySymbol).ToElements()
+        symbol = next(
+            (s for s in symbols if s.FamilyName == family_name and s.Name == type_name), None
+        )
+        if symbol is None:
+            return Response(status_code=404, data={"error": f"Type '{family_name} : {type_name}' not found"})
+
+        # Find level
+        level = None
+        if level_name:
+            for elem in FilteredElementCollector(doc).OfClass(Level):
+                if elem.Name == level_name:
+                    level = elem
+                    break
+
+        location = XYZ(x, y, z)
+        with Transaction(doc, "MCP: Place Family Instance") as t:
+            t.Start()
+            if not symbol.IsActive:
+                symbol.Activate()
+                doc.Regenerate()
+            if host_id:
+                host = doc.GetElement(ElementId(host_id))
+                instance = doc.Create.NewFamilyInstance(location, symbol, host, None)
+            elif level:
+                from Autodesk.Revit.DB import StructuralType
+                instance = doc.Create.NewFamilyInstance(location, symbol, level, StructuralType.NonStructural)
+            else:
+                from Autodesk.Revit.DB import StructuralType
+                instance = doc.Create.NewFamilyInstance(location, symbol, StructuralType.NonStructural)
+
+            if rotation != 0:
+                import math
+                from Autodesk.Revit.DB import Line
+                axis = Line.CreateBound(location, XYZ(location.X, location.Y, location.Z + 1))
+                ElementTransformUtils.RotateElement(doc, instance.Id, axis, math.radians(rotation))
+            t.Commit()
+
+        return Response(data={"element_id": instance.Id.IntegerValue, "family": family_name, "type": type_name})
+
+    @api.route("/revit/families/load", methods=["POST"])
+    def load_family(request):
+        rfa_path = request.data.get("rfa_path")
+        family = clr.Reference[Family]()
+        with Transaction(doc, "MCP: Load Family") as t:
+            t.Start()
+            success = doc.LoadFamily(rfa_path, family)
+            t.Commit()
+        if not success:
+            return Response(status_code=400, data={"error": f"Failed to load family from '{rfa_path}'"})
+        fam = family.Value
+        return Response(data={
+            "family_name": fam.Name,
+            "category": fam.FamilyCategory.Name if fam.FamilyCategory else None,
+            "type_count": fam.GetFamilySymbolIds().Count,
+        })

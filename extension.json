@@ -1,0 +1,10 @@
+{
+    "name": "RevitMCP",
+    "author": "Jackson Pinto",
+    "author_profile": "https://github.com/JacksonPinto",
+    "description": "pyRevit Routes extension that exposes an HTTP API inside Revit for the Revit MCP server. MEP-focused; targets Revit 2025 and 2026.",
+    "url": "https://github.com/JacksonPinto/RevitMCP.extension.git",
+    "website": "https://github.com/JacksonPinto/RevitMCP.extension",
+    "rocket_mode_compatible": true,
+    "default_enabled": true
+}
