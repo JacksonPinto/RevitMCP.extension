@@ -10,12 +10,18 @@ doc = _uidoc.Document if _uidoc else None
 def _get_routes(api):
 
     @api.route('/levels', methods=['GET'])
-    def list_levels():
+    def list_levels(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         levels = sorted(FilteredElementCollector(doc).OfClass(Level), key=lambda l: l.Elevation)
         return Response(data=[{'element_id': l.Id.IntegerValue, 'name': l.Name, 'elevation': l.Elevation} for l in levels])
 
     @api.route('/levels/by_name', methods=['GET'])
-    def get_level(request):
+    def get_level(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         name = request.params.get('level_name')
         lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == name), None)
         if not lvl:
@@ -23,7 +29,10 @@ def _get_routes(api):
         return Response(data={'element_id': lvl.Id.IntegerValue, 'name': lvl.Name, 'elevation': lvl.Elevation})
 
     @api.route('/levels/create', methods=['POST'])
-    def create_level(request):
+    def create_level(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         with Transaction(doc, 'MCP: Create Level') as t:
             t.Start()
@@ -34,7 +43,10 @@ def _get_routes(api):
         return Response(data={'element_id': lvl.Id.IntegerValue, 'name': lvl.Name, 'elevation': lvl.Elevation})
 
     @api.route('/levels/set_elevation', methods=['POST'])
-    def set_elevation(request):
+    def set_elevation(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == body['level_name']), None)
         if not lvl:
@@ -47,7 +59,10 @@ def _get_routes(api):
         return Response(data={'level_name': body['level_name'], 'old_elevation': old_elev, 'new_elevation': body['elevation']})
 
     @api.route('/levels/rename', methods=['POST'])
-    def rename_level(request):
+    def rename_level(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == body['old_name']), None)
         if not lvl:
@@ -59,7 +74,10 @@ def _get_routes(api):
         return Response(data={'old_name': body['old_name'], 'new_name': body['new_name']})
 
     @api.route('/grids', methods=['GET'])
-    def list_grids():
+    def list_grids(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         results = []
         for g in FilteredElementCollector(doc).OfClass(Grid):
             curve = g.Curve
@@ -69,7 +87,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/grids/create', methods=['POST'])
-    def create_grid(request):
+    def create_grid(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         start = XYZ(body['start_x'], body['start_y'], 0)
         end = XYZ(body['end_x'], body['end_y'], 0)

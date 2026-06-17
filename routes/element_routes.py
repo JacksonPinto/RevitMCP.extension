@@ -6,7 +6,7 @@ Runs INSIDE Revit. Registered in startup.py.
 import clr
 clr.AddReference('RevitAPI')
 clr.AddReference('RevitAPIUI')
-from Autodesk.Revit.DB import BuiltInCategory, ElementId, ElementTransformUtils, FilteredElementCollector, LocationCurve, LocationPoint, ParameterFilterRuleFactory, Selection, Transaction, Transform, XYZ, BuiltInParameter
+from Autodesk.Revit.DB import BuiltInCategory, ElementId, ElementTransformUtils, FilteredElementCollector, LocationCurve, LocationPoint, ParameterFilterRuleFactory, Transaction, Transform, XYZ, BuiltInParameter
 from pyrevit.routes import API, Response
 _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
@@ -27,7 +27,11 @@ def _elem_to_dict(elem):
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>', methods=['GET'])
-    def get_element(element_id):
+    def get_element(uiapp, element_id):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         elem_id = ElementId(element_id)
         elem = doc.GetElement(elem_id)
         if elem is None:
@@ -52,7 +56,11 @@ def _get_routes(api):
         return Response(data=d)
 
     @api.route('/elements/by_category', methods=['GET'])
-    def get_elements_by_category(request):
+    def get_elements_by_category(uiapp, request):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         category_name = request.params.get('category')
         level_name = request.params.get('level_name')
         include_types = request.params.get('include_type_elements', 'false').lower() == 'true'
@@ -74,7 +82,11 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/elements/by_type/<int:type_id>', methods=['GET'])
-    def get_elements_by_type(type_id):
+    def get_elements_by_type(uiapp, type_id):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         from Autodesk.Revit.DB import FamilyInstanceFilter
         target_id = ElementId(type_id)
         results = []
@@ -85,7 +97,11 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/elements/find_by_parameter', methods=['POST'])
-    def find_by_parameter(request):
+    def find_by_parameter(uiapp, request):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         body = request.data
         category_name = body.get('category')
         param_name = body.get('param_name')
@@ -111,7 +127,11 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/selection', methods=['GET'])
-    def get_selection():
+    def get_selection(uiapp):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         sel = uidoc.Selection.GetElementIds()
         results = []
         for eid in sel:
@@ -121,7 +141,11 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/selection', methods=['POST'])
-    def set_selection(request):
+    def set_selection(uiapp, request):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         ids = [ElementId(i) for i in request.data.get('element_ids', [])]
         from System.Collections.Generic import List as NetList
         id_list = NetList[ElementId](ids)
@@ -129,14 +153,22 @@ def _get_routes(api):
         return Response(data={'selected_count': len(ids)})
 
     @api.route('/elements/count', methods=['GET'])
-    def count_by_category(request):
+    def count_by_category(uiapp, request):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         category_name = request.params.get('category')
         instance_count = sum((1 for e in FilteredElementCollector(doc).WhereElementIsNotElementType() if e.Category and e.Category.Name == category_name))
         type_count = sum((1 for e in FilteredElementCollector(doc).WhereElementIsElementType() if e.Category and e.Category.Name == category_name))
         return Response(data={'category': category_name, 'instance_count': instance_count, 'type_count': type_count})
 
     @api.route('/elements', methods=['DELETE'])
-    def delete_elements(request):
+    def delete_elements(uiapp, request):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         ids = [ElementId(i) for i in request.data.get('element_ids', [])]
         deleted = []
         failed = []
@@ -156,7 +188,11 @@ def _get_routes(api):
         return Response(data={'deleted_count': len(deleted), 'deleted': deleted, 'failed': failed})
 
     @api.route('/elements/move', methods=['POST'])
-    def move_elements(request):
+    def move_elements(uiapp, request):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         body = request.data
         ids = [ElementId(i) for i in body.get('element_ids', [])]
         delta = XYZ(body.get('delta_x', 0), body.get('delta_y', 0), body.get('delta_z', 0))
@@ -173,7 +209,11 @@ def _get_routes(api):
         return Response(data={'moved_count': len(moved), 'element_ids': moved})
 
     @api.route('/elements/copy', methods=['POST'])
-    def copy_elements(request):
+    def copy_elements(uiapp, request):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         body = request.data
         ids = [ElementId(i) for i in body.get('element_ids', [])]
         delta = XYZ(body.get('delta_x', 0), body.get('delta_y', 0), body.get('delta_z', 0))
@@ -188,7 +228,11 @@ def _get_routes(api):
         return Response(data={'new_element_ids': new_ids, 'count': len(new_ids)})
 
     @api.route('/elements/pin', methods=['POST'])
-    def pin_elements(request):
+    def pin_elements(uiapp, request):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         body = request.data
         ids = [ElementId(i) for i in body.get('element_ids', [])]
         pinned = body.get('pinned', True)
@@ -204,7 +248,11 @@ def _get_routes(api):
         return Response(data={'changed_count': changed, 'pinned': pinned})
 
     @api.route('/elements/<int:element_id>/location', methods=['GET'])
-    def get_location(element_id):
+    def get_location(uiapp, element_id):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
@@ -220,7 +268,11 @@ def _get_routes(api):
         return Response(data={'type': 'unknown'})
 
     @api.route('/elements/<int:element_id>/dependencies', methods=['GET'])
-    def get_dependencies(element_id):
+    def get_dependencies(uiapp, element_id):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})

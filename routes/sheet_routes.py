@@ -23,7 +23,10 @@ def _find_sheet(number):
 def _get_routes(api):
 
     @api.route('/sheets', methods=['GET'])
-    def list_sheets(request):
+    def list_sheets(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         search = request.params.get('search', '').lower()
         results = []
         for s in FilteredElementCollector(doc).OfClass(ViewSheet):
@@ -33,7 +36,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/sheets/by_number', methods=['GET'])
-    def get_sheet(request):
+    def get_sheet(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         number = request.params.get('sheet_number')
         sheet = _find_sheet(number)
         if not sheet:
@@ -41,7 +47,10 @@ def _get_routes(api):
         return Response(data=_sheet_to_dict(sheet))
 
     @api.route('/sheets/create', methods=['POST'])
-    def create_sheet(request):
+    def create_sheet(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         tb_id = ElementId.InvalidElementId
         tb_family = body.get('titleblock_family')
@@ -63,7 +72,10 @@ def _get_routes(api):
         return Response(data={'element_id': sheet.Id.IntegerValue, 'sheet_number': sheet.SheetNumber, 'sheet_name': sheet.Name})
 
     @api.route('/sheets/create_bulk', methods=['POST'])
-    def create_sheets_bulk(request):
+    def create_sheets_bulk(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         sheets_data = body.get('sheets', [])
         tb_id = ElementId.InvalidElementId
@@ -89,7 +101,10 @@ def _get_routes(api):
         return Response(data={'created_count': len(created), 'created': created, 'failed': failed})
 
     @api.route('/sheets/place_view', methods=['POST'])
-    def place_view(request):
+    def place_view(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         view_name = body.get('view_name')
         sheet_number = body.get('sheet_number')
@@ -113,7 +128,10 @@ def _get_routes(api):
         return Response(data={'viewport_id': vp.Id.IntegerValue, 'view_name': view_name, 'sheet_number': sheet_number})
 
     @api.route('/sheets/views', methods=['GET'])
-    def list_views_on_sheet(request):
+    def list_views_on_sheet(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         number = request.params.get('sheet_number')
         sheet = _find_sheet(number)
         if not sheet:
@@ -125,7 +143,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/sheets/remove_view', methods=['DELETE'])
-    def remove_view(request):
+    def remove_view(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         sheet = _find_sheet(body['sheet_number'])
         if not sheet:
@@ -140,7 +161,10 @@ def _get_routes(api):
         return Response(data={'removed': body['view_name'], 'from_sheet': body['sheet_number']})
 
     @api.route('/sheets/set_parameter', methods=['POST'])
-    def set_sheet_parameter(request):
+    def set_sheet_parameter(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         sheet = _find_sheet(body['sheet_number'])
         if not sheet:
@@ -156,7 +180,10 @@ def _get_routes(api):
         return Response(data={'param_name': body['param_name'], 'old_value': old_val, 'new_value': body['value']})
 
     @api.route('/sheets/renumber', methods=['POST'])
-    def renumber_sheet(request):
+    def renumber_sheet(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         sheet = _find_sheet(body['old_number'])
         if not sheet:
@@ -168,7 +195,10 @@ def _get_routes(api):
         return Response(data={'old_number': body['old_number'], 'new_number': body['new_number']})
 
     @api.route('/sheets/titleblocks', methods=['GET'])
-    def list_titleblocks():
+    def list_titleblocks(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         results = []
         for sym in FilteredElementCollector(doc).OfClass(FamilySymbol):
             if sym.Category and 'Title Block' in sym.Category.Name:

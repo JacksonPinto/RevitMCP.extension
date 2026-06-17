@@ -16,7 +16,10 @@ def _room_to_dict(room):
 def _get_routes(api):
 
     @api.route('/rooms', methods=['GET'])
-    def list_rooms(request):
+    def list_rooms(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         level_name = request.params.get('level_name')
         search = request.params.get('search', '').lower()
         unplaced = request.params.get('unplaced_only', 'false').lower() == 'true'
@@ -33,7 +36,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/rooms/by_number', methods=['GET'])
-    def get_room(request):
+    def get_room(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         number = request.params.get('room_number')
         room = next((r for r in FilteredElementCollector(doc).WherePasses(RoomFilter()) if r.Number == number), None)
         if not room:
@@ -41,7 +47,10 @@ def _get_routes(api):
         return Response(data=_room_to_dict(room))
 
     @api.route('/rooms/create', methods=['POST'])
-    def create_room(request):
+    def create_room(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         level = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == body['level_name']), None)
         if not level:
@@ -59,7 +68,10 @@ def _get_routes(api):
         return Response(data={'element_id': room.Id.IntegerValue, 'number': room.Number, 'name': room.Name})
 
     @api.route('/rooms/at_point', methods=['GET'])
-    def get_room_at_point(request):
+    def get_room_at_point(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         from Autodesk.Revit.DB import XYZ
         x = float(request.params.get('x', 0))
         y = float(request.params.get('y', 0))
@@ -74,7 +86,10 @@ def _get_routes(api):
         return Response(data={'room': None})
 
     @api.route('/spaces', methods=['GET'])
-    def list_spaces(request):
+    def list_spaces(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         level_name = request.params.get('level_name')
         results = []
         try:

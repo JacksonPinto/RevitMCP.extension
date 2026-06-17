@@ -13,7 +13,10 @@ def _mat_to_dict(m):
 def _get_routes(api):
 
     @api.route('/materials', methods=['GET'])
-    def list_materials(request):
+    def list_materials(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         search = request.params.get('search', '').lower()
         results = []
         for m in FilteredElementCollector(doc).OfClass(Material):
@@ -23,7 +26,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/materials/by_name', methods=['GET'])
-    def get_material(request):
+    def get_material(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         name = request.params.get('material_name')
         m = next((m for m in FilteredElementCollector(doc).OfClass(Material) if m.Name == name), None)
         if not m:
@@ -31,7 +37,10 @@ def _get_routes(api):
         return Response(data=_mat_to_dict(m))
 
     @api.route('/materials/create', methods=['POST'])
-    def create_material(request):
+    def create_material(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         with Transaction(doc, 'MCP: Create Material') as t:
             t.Start()
@@ -44,7 +53,10 @@ def _get_routes(api):
         return Response(data={'element_id': mat_id.IntegerValue, 'name': body['material_name']})
 
     @api.route('/materials/duplicate', methods=['POST'])
-    def duplicate_material(request):
+    def duplicate_material(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         src = next((m for m in FilteredElementCollector(doc).OfClass(Material) if m.Name == body['source_name']), None)
         if not src:

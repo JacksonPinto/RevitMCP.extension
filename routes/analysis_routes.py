@@ -11,7 +11,10 @@ doc = _uidoc.Document if _uidoc else None
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>/bounding_box', methods=['GET'])
-    def get_bounding_box(element_id):
+    def get_bounding_box(uiapp, element_id):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         elem = doc.GetElement(ElementId(element_id))
         if not elem:
             return Response(status_code=404, data={'error': 'Element not found'})
@@ -21,7 +24,10 @@ def _get_routes(api):
         return Response(data={'min': {'x': bb.Min.X, 'y': bb.Min.Y, 'z': bb.Min.Z}, 'max': {'x': bb.Max.X, 'y': bb.Max.Y, 'z': bb.Max.Z}, 'width': abs(bb.Max.X - bb.Min.X), 'depth': abs(bb.Max.Y - bb.Min.Y), 'height': abs(bb.Max.Z - bb.Min.Z)})
 
     @api.route('/model/extents', methods=['GET'])
-    def get_model_extents():
+    def get_model_extents(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         all_elems = FilteredElementCollector(doc).WhereElementIsNotElementType().ToElements()
         min_x = min_y = min_z = float('inf')
         max_x = max_y = max_z = float('-inf')
@@ -40,7 +46,10 @@ def _get_routes(api):
         return Response(data={'min': {'x': min_x, 'y': min_y, 'z': min_z}, 'max': {'x': max_x, 'y': max_y, 'z': max_z}, 'width': abs(max_x - min_x), 'depth': abs(max_y - min_y), 'height': abs(max_z - min_z)})
 
     @api.route('/analysis/room_areas', methods=['GET'])
-    def room_areas(request):
+    def room_areas(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         level_name = request.params.get('level_name')
         level_areas = {}
         for room in FilteredElementCollector(doc).WherePasses(RoomFilter()):
@@ -60,7 +69,10 @@ def _get_routes(api):
         return Response(data=result)
 
     @api.route('/analysis/area_by_category', methods=['GET'])
-    def area_by_category(request):
+    def area_by_category(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         category_name = request.params.get('category', 'Floors')
         level_name = request.params.get('level_name')
         total = 0
@@ -82,7 +94,10 @@ def _get_routes(api):
         return Response(data={'category': category_name, 'total_area': total, 'element_count': len(breakdown), 'breakdown': [{'type_name': k, 'area': v} for (k, v) in breakdown.items()]})
 
     @api.route('/elements/<int:element_id>/volume', methods=['GET'])
-    def get_volume(element_id):
+    def get_volume(uiapp, element_id):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         elem = doc.GetElement(ElementId(element_id))
         if not elem:
             return Response(status_code=404, data={'error': 'Element not found'})
@@ -91,7 +106,10 @@ def _get_routes(api):
         return Response(data={'element_id': element_id, 'volume': vol, 'category': elem.Category.Name if elem.Category else None})
 
     @api.route('/analysis/elements_in_box', methods=['POST'])
-    def elements_in_box(request):
+    def elements_in_box(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         outline = Outline(XYZ(body['min_x'], body['min_y'], body['min_z']), XYZ(body['max_x'], body['max_y'], body['max_z']))
         bb_filter = BoundingBoxIntersectsFilter(outline)
@@ -105,7 +123,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/analysis/clash_detection', methods=['POST'])
-    def clash_detection(request):
+    def clash_detection(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         cat_a = body.get('category_a')
         cat_b = body.get('category_b')
@@ -131,7 +152,10 @@ def _get_routes(api):
         return Response(data={'clash_count': len(clashes), 'clashes': clashes})
 
     @api.route('/analysis/model_summary', methods=['GET'])
-    def model_summary():
+    def model_summary(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         info = doc.ProjectInformation
         all_elems = list(FilteredElementCollector(doc).WhereElementIsNotElementType())
         cat_counts = {}

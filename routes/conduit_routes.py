@@ -167,7 +167,10 @@ def _traverse_circuit(system):
 def _get_routes(api):
 
     @api.route('/conduit/circuits', methods=['GET'])
-    def list_circuits(request):
+    def list_circuits(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         panel_filter = request.params.get('panel_name', '').lower()
         type_filter = request.params.get('circuit_type', '').lower()
         results = []
@@ -187,7 +190,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/conduit/circuits/<int:circuit_id>/analyze_connectors', methods=['GET'])
-    def analyze_connectors(circuit_id):
+    def analyze_connectors(uiapp, circuit_id):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         system = doc.GetElement(ElementId(circuit_id))
         if not isinstance(system, ElectricalSystem):
             return Response(status_code=404, data={'error': 'Circuit not found'})
@@ -212,14 +218,20 @@ def _get_routes(api):
         return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'panel_name': panel.Name if panel else None, 'panel_id': panel.Id.IntegerValue if panel else None, 'panel_has_conduit_connector': panel_has_conduit, 'element_count': len(ready) + len(problems), 'ready_elements': ready, 'problem_elements': problems, 'can_build': len(problems) == 0 and panel_has_conduit})
 
     @api.route('/conduit/types', methods=['GET'])
-    def list_conduit_types():
+    def list_conduit_types(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         results = []
         for ct in FilteredElementCollector(doc).OfClass(ConduitType):
             results.append({'element_id': ct.Id.IntegerValue, 'name': ct.Name, 'family_name': ct.FamilyName if hasattr(ct, 'FamilyName') else ct.Name})
         return Response(data=results)
 
     @api.route('/conduit/types/<int:type_id>/sizes', methods=['GET'])
-    def get_conduit_sizes(type_id):
+    def get_conduit_sizes(uiapp, type_id):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         ct = doc.GetElement(ElementId(type_id))
         if ct is None:
             return Response(status_code=404, data={'error': 'ConduitType not found'})
@@ -230,7 +242,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/conduit/circuits/<int:circuit_id>/sequence', methods=['GET'])
-    def get_sequence(circuit_id):
+    def get_sequence(uiapp, circuit_id):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         system = doc.GetElement(ElementId(circuit_id))
         if not isinstance(system, ElectricalSystem):
             return Response(status_code=404, data={'error': 'Circuit not found'})
@@ -264,7 +279,10 @@ def _get_routes(api):
         return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'panel': panel_info, 'sequence': sequence, 'segment_count': max(0, len(ordered) - 1) + (1 if panel else 0), 'total_run_length': total_length})
 
     @api.route('/conduit/circuits/<int:circuit_id>/build_plan', methods=['GET'])
-    def build_plan(circuit_id):
+    def build_plan(uiapp, circuit_id):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         system = doc.GetElement(ElementId(circuit_id))
         if not isinstance(system, ElectricalSystem):
             return Response(status_code=404, data={'error': 'Circuit not found'})
@@ -308,7 +326,10 @@ def _get_routes(api):
         return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'panel_name': panel.Name if panel else None, 'pre_flight_status': 'needs_family_edits' if problem_families else 'ready', 'steps': steps, 'problem_families': problem_families, 'estimated_total_length': total_length, 'recommended_diameter_mm': recommended_mm})
 
     @api.route('/conduit/build', methods=['POST'])
-    def build_conduit(request):
+    def build_conduit(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         circuit_id = int(body.get('circuit_id'))
         conduit_type_id = int(body.get('conduit_type_id'))
@@ -444,7 +465,10 @@ def _get_routes(api):
         return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'conduit_type_name': conduit_type.Name, 'diameter': diameter, 'routing_strategy': routing_strategy, 'segments_created': segments_created, 'fittings_created': fittings_created, 'skipped_connections': skipped_connections, 'total_length': total_length, 'success': len(skipped_connections) == 0, 'warnings': warnings})
 
     @api.route('/conduit/list', methods=['GET'])
-    def list_conduits(request):
+    def list_conduits(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         level_name = request.params.get('level_name')
         type_name = request.params.get('conduit_type_name')
         results = []
@@ -477,7 +501,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/conduit/element/<int:element_id>/connectors', methods=['GET'])
-    def get_element_connectors(element_id):
+    def get_element_connectors(uiapp, element_id):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
@@ -501,7 +528,10 @@ def _get_routes(api):
         return Response(data={**s, 'has_conduit_connectors': len(conduit_conns) > 0, 'connectors': connector_list, 'fix_instruction': fix_instruction})
 
     @api.route('/conduit/by_circuit', methods=['DELETE'])
-    def delete_circuit_conduits(request):
+    def delete_circuit_conduits(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         circuit_id = int(request.data.get('circuit_id'))
         system = doc.GetElement(ElementId(circuit_id))
         if not isinstance(system, ElectricalSystem):

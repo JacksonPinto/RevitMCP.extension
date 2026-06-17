@@ -22,7 +22,10 @@ def _find_level(level_name):
 def _get_routes(api):
 
     @api.route('/views', methods=['GET'])
-    def list_views(request):
+    def list_views(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         vtype = request.params.get('view_type')
         search = request.params.get('search', '').lower()
         excl_templates = request.params.get('exclude_template_views', 'true').lower() == 'true'
@@ -38,7 +41,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/views/by_name', methods=['GET'])
-    def get_view_by_name(request):
+    def get_view_by_name(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         name = request.params.get('view_name')
         for v in FilteredElementCollector(doc).OfClass(View):
             if v.Name == name:
@@ -46,12 +52,18 @@ def _get_routes(api):
         return Response(status_code=404, data={'error': "View '{}' not found".format(name)})
 
     @api.route('/views/templates', methods=['GET'])
-    def list_templates():
+    def list_templates(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         results = [_view_to_dict(v) for v in FilteredElementCollector(doc).OfClass(View) if v.IsTemplate]
         return Response(data=results)
 
     @api.route('/views/create/floor_plan', methods=['POST'])
-    def create_floor_plan(request):
+    def create_floor_plan(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         level = _find_level(body['level_name'])
         if level is None:
@@ -71,7 +83,10 @@ def _get_routes(api):
         return Response(data={'element_id': view.Id.IntegerValue, 'name': view.Name})
 
     @api.route('/views/duplicate', methods=['POST'])
-    def duplicate_view(request):
+    def duplicate_view(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         src_name = body.get('source_view_name')
         new_name = body.get('new_view_name')
@@ -92,7 +107,10 @@ def _get_routes(api):
         return Response(data={'element_id': new_id.IntegerValue, 'name': new_name})
 
     @api.route('/views/apply_template', methods=['POST'])
-    def apply_template(request):
+    def apply_template(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['view_name']), None)
         template = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.IsTemplate and v.Name == body['template_name']), None)
@@ -107,7 +125,10 @@ def _get_routes(api):
         return Response(data={'view_name': body['view_name'], 'template_applied': body['template_name']})
 
     @api.route('/views/set_scale', methods=['POST'])
-    def set_scale(request):
+    def set_scale(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['view_name']), None)
         if not view:
@@ -120,7 +141,10 @@ def _get_routes(api):
         return Response(data={'view_name': body['view_name'], 'old_scale': old_scale, 'new_scale': view.Scale})
 
     @api.route('/views/set_detail_level', methods=['POST'])
-    def set_detail_level(request):
+    def set_detail_level(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         from Autodesk.Revit.DB import ViewDetailLevel
         body = request.data
         view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['view_name']), None)
@@ -134,7 +158,10 @@ def _get_routes(api):
         return Response(data={'view_name': body['view_name'], 'detail_level': body['detail_level']})
 
     @api.route('/views/rename', methods=['POST'])
-    def rename_view(request):
+    def rename_view(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['old_name']), None)
         if not view:
@@ -146,7 +173,10 @@ def _get_routes(api):
         return Response(data={'old_name': body['old_name'], 'new_name': body['new_name']})
 
     @api.route('/views', methods=['DELETE'])
-    def delete_view(request):
+    def delete_view(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         view_name = request.data.get('view_name')
         view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == view_name), None)
         if not view:

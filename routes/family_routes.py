@@ -14,7 +14,10 @@ doc = _uidoc.Document if _uidoc else None
 def _get_routes(api):
 
     @api.route('/families/categories', methods=['GET'])
-    def list_family_categories():
+    def list_family_categories(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         families = FilteredElementCollector(doc).OfClass(Family).ToElements()
         cats = {}
         for fam in families:
@@ -24,7 +27,10 @@ def _get_routes(api):
         return Response(data=[{'category': k, 'family_count': v} for (k, v) in sorted(cats.items())])
 
     @api.route('/families', methods=['GET'])
-    def list_families(request):
+    def list_families(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         category_filter = request.params.get('category')
         search = request.params.get('search', '').lower()
         families = FilteredElementCollector(doc).OfClass(Family).ToElements()
@@ -41,7 +47,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/families/types', methods=['GET'])
-    def list_family_types(request):
+    def list_family_types(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         family_name = request.params.get('family_name')
         families = FilteredElementCollector(doc).OfClass(Family).ToElements()
         target = next((f for f in families if f.Name == family_name), None)
@@ -55,7 +64,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/families/place', methods=['POST'])
-    def place_family(request):
+    def place_family(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         family_name = body.get('family_name')
         type_name = body.get('type_name')
@@ -99,7 +111,10 @@ def _get_routes(api):
         return Response(data={'element_id': instance.Id.IntegerValue, 'family': family_name, 'type': type_name})
 
     @api.route('/families/load', methods=['POST'])
-    def load_family(request):
+    def load_family(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         rfa_path = request.data.get('rfa_path')
         family = clr.Reference[Family]()
         with Transaction(doc, 'MCP: Load Family') as t:

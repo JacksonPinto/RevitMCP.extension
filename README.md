@@ -68,9 +68,9 @@ RevitMCP.extension/
 
 ## Known limitations (see the main repo's REVIEW.md)
 
-- The active document is captured at load time; **reload the extension after switching
-  projects** until per-request document resolution is added. This is also why
-  family-document shared-parameter editing is not yet supported.
+- Family-document shared-parameter editing is not yet implemented (planned next). The
+  plumbing is now in place: handlers run in Revit's API context and receive the live
+  document per request, so editing the active family document is feasible.
 - `parameter_routes` does not yet implement `/revit/parameters/shared` or
   `/revit/parameters/missing` (the matching MCP tools will 404).
 - MEP outputs are not yet unit-converted to mm.

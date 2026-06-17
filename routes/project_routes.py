@@ -19,20 +19,32 @@ def _get_routes(api):
     """Register all project-related routes on the provided API object."""
 
     @api.route('/ping', methods=['GET'])
-    def ping():
+    def ping(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         return Response(data={'status': 'ok', 'revit_version': app.VersionNumber, 'revit_build': app.VersionBuild, 'pyrevit_version': 'pyrevit', 'document_open': doc is not None and (not doc.IsDetached), 'document_title': doc.Title if doc else None})
 
     @api.route('/application/version', methods=['GET'])
-    def get_version():
+    def get_version(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         return Response(data={'version_number': app.VersionNumber, 'version_name': app.VersionName, 'version_build': app.VersionBuild, 'sub_version': app.SubVersionNumber, 'language': str(app.Language)})
 
     @api.route('/project/info', methods=['GET'])
-    def get_project_info():
+    def get_project_info(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         info = doc.ProjectInformation
         return Response(data={'project_name': info.Name, 'project_number': info.Number, 'client_name': info.ClientName, 'building_name': info.BuildingName, 'address': info.Address, 'issue_date': info.IssueDate, 'status': info.Status, 'author': info.Author, 'file_path': doc.PathName, 'revit_version': app.VersionNumber, 'is_workshared': doc.IsWorkshared, 'is_detached': doc.IsDetached})
 
     @api.route('/project/info/set', methods=['POST'])
-    def set_project_parameter(request):
+    def set_project_parameter(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         param_name = body.get('param_name')
         value = body.get('value', '')
@@ -49,7 +61,10 @@ def _get_routes(api):
         return Response(data={'param_name': param_name, 'old_value': old_value, 'new_value': value})
 
     @api.route('/project/stats', methods=['GET'])
-    def get_document_stats():
+    def get_document_stats(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         collector = FilteredElementCollector(doc)
         all_elements = collector.WhereElementIsNotElementType().ToElements()
         category_counts = {}
@@ -60,7 +75,10 @@ def _get_routes(api):
         return Response(data={'total_elements': len(list(all_elements)), 'category_counts': category_counts, 'file_path': doc.PathName})
 
     @api.route('/project/warnings', methods=['GET'])
-    def get_warnings():
+    def get_warnings(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         warnings = doc.GetWarnings()
         result = []
         for w in warnings:
@@ -68,7 +86,10 @@ def _get_routes(api):
         return Response(data=result)
 
     @api.route('/project/links', methods=['GET'])
-    def get_links():
+    def get_links(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         from Autodesk.Revit.DB import RevitLinkInstance
         collector = FilteredElementCollector(doc).OfClass(RevitLinkInstance)
         result = []

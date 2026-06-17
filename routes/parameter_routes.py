@@ -25,7 +25,10 @@ def _set_param(param, value):
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>/parameters', methods=['GET'])
-    def get_parameters(element_id, request):
+    def get_parameters(uiapp, element_id, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
@@ -60,7 +63,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/elements/<int:element_id>/parameters/<string:param_name>', methods=['GET'])
-    def get_single_parameter(element_id, param_name):
+    def get_single_parameter(uiapp, element_id, param_name):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
@@ -72,7 +78,10 @@ def _get_routes(api):
         return Response(data={'name': param_name, 'value': val, 'display_value': param.AsValueString(), 'storage_type': st, 'read_only': param.IsReadOnly})
 
     @api.route('/elements/<int:element_id>/parameters/set', methods=['POST'])
-    def set_parameter(element_id, request):
+    def set_parameter(uiapp, element_id, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
@@ -90,7 +99,10 @@ def _get_routes(api):
         return Response(data={'param_name': body['param_name'], 'old_value': old_val, 'new_value': body['value']})
 
     @api.route('/elements/<int:element_id>/parameters/batch', methods=['POST'])
-    def batch_set_parameters(element_id, request):
+    def batch_set_parameters(uiapp, element_id, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
@@ -113,7 +125,10 @@ def _get_routes(api):
         return Response(data={'element_id': element_id, 'results': results})
 
     @api.route('/types/<int:type_id>/parameters', methods=['GET'])
-    def get_type_parameters(type_id):
+    def get_type_parameters(uiapp, type_id):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         elem = doc.GetElement(ElementId(type_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Type not found'})
@@ -128,7 +143,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/types/<int:type_id>/parameters/set', methods=['POST'])
-    def set_type_parameter(type_id, request):
+    def set_type_parameter(uiapp, type_id, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         elem = doc.GetElement(ElementId(type_id))
         if elem is None:
@@ -144,7 +162,10 @@ def _get_routes(api):
         return Response(data={'type_id': type_id, 'param_name': body['param_name'], 'old_value': old_val, 'new_value': body['value']})
 
     @api.route('/parameters/project', methods=['GET'])
-    def list_project_parameters():
+    def list_project_parameters(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         binding_map = doc.ParameterBindings
         it = binding_map.ForwardIterator()
         results = []
@@ -160,7 +181,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/parameters/bulk_update', methods=['POST'])
-    def bulk_update(request):
+    def bulk_update(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         body = request.data
         category_name = body.get('category')
         param_name = body.get('param_name')

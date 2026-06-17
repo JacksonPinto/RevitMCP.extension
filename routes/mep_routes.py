@@ -13,7 +13,10 @@ doc = _uidoc.Document if _uidoc else None
 def _get_routes(api):
 
     @api.route('/mep/systems', methods=['GET'])
-    def list_systems(request):
+    def list_systems(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         system_type = request.params.get('system_type')
         results = []
         try:
@@ -33,7 +36,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/mep/ducts', methods=['GET'])
-    def list_ducts(request):
+    def list_ducts(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         level_name = request.params.get('level_name')
         results = []
         try:
@@ -45,7 +51,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/mep/pipes', methods=['GET'])
-    def list_pipes(request):
+    def list_pipes(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         results = []
         try:
             for pipe in FilteredElementCollector(doc).OfClass(Pipe):
@@ -55,7 +64,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/mep/circuits', methods=['GET'])
-    def list_circuits():
+    def list_circuits(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         results = []
         try:
             for circuit in FilteredElementCollector(doc).OfClass(ElectricalSystem):
@@ -65,7 +77,10 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/mep/mechanical_equipment', methods=['GET'])
-    def list_mech_equip(request):
+    def list_mech_equip(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         level_name = request.params.get('level_name')
         results = []
         for elem in FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_MechanicalEquipment).WhereElementIsNotElementType():
@@ -77,14 +92,20 @@ def _get_routes(api):
         return Response(data=results)
 
     @api.route('/mep/light_fixtures', methods=['GET'])
-    def list_lights(request):
+    def list_lights(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         results = []
         for elem in FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_LightingFixtures).WhereElementIsNotElementType():
             results.append({'element_id': elem.Id.IntegerValue, 'name': elem.Name})
         return Response(data=results)
 
     @api.route('/mep/plumbing_fixtures', methods=['GET'])
-    def list_plumbing(request):
+    def list_plumbing(uiapp, request):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
         results = []
         for elem in FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_PlumbingFixtures).WhereElementIsNotElementType():
             results.append({'element_id': elem.Id.IntegerValue, 'name': elem.Name})

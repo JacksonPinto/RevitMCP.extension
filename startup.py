@@ -14,9 +14,10 @@ Install (direct from Git, via pyRevit Extension Manager):
 Then enable the Routes server in pyRevit Settings -> Routes, set port 48884,
 Save Settings, and Reload. Confirm with:  http://localhost:48884/revit/ping
 
-Routes register even if no document is open at load time; open a model before
-calling any route. (The document is resolved at load time -- reload the
-extension after switching projects until per-request resolution lands.)
+Each handler receives the live active document per request (pyRevit injects
+'uiapp' and resolves the current doc) and runs inside Revit's API context, so
+transactions work and switching projects needs no reload. Open a model before
+calling document-dependent routes.
 """
 import os
 import sys
