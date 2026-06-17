@@ -24,7 +24,7 @@ def _set_param(param, value):
 
 def _get_routes(api):
 
-    @api.route('/revit/elements/<int:element_id>/parameters', methods=['GET'])
+    @api.route('/elements/<int:element_id>/parameters', methods=['GET'])
     def get_parameters(element_id, request):
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
@@ -59,7 +59,7 @@ def _get_routes(api):
                 pass
         return Response(data=results)
 
-    @api.route('/revit/elements/<int:element_id>/parameters/<string:param_name>', methods=['GET'])
+    @api.route('/elements/<int:element_id>/parameters/<string:param_name>', methods=['GET'])
     def get_single_parameter(element_id, param_name):
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
@@ -71,7 +71,7 @@ def _get_routes(api):
         val = param.AsString() if st == 'String' else param.AsDouble() if st == 'Double' else param.AsInteger() if st == 'Integer' else param.AsElementId().IntegerValue
         return Response(data={'name': param_name, 'value': val, 'display_value': param.AsValueString(), 'storage_type': st, 'read_only': param.IsReadOnly})
 
-    @api.route('/revit/elements/<int:element_id>/parameters/set', methods=['POST'])
+    @api.route('/elements/<int:element_id>/parameters/set', methods=['POST'])
     def set_parameter(element_id, request):
         body = request.data
         elem = doc.GetElement(ElementId(element_id))
@@ -89,7 +89,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'param_name': body['param_name'], 'old_value': old_val, 'new_value': body['value']})
 
-    @api.route('/revit/elements/<int:element_id>/parameters/batch', methods=['POST'])
+    @api.route('/elements/<int:element_id>/parameters/batch', methods=['POST'])
     def batch_set_parameters(element_id, request):
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
@@ -112,7 +112,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'element_id': element_id, 'results': results})
 
-    @api.route('/revit/types/<int:type_id>/parameters', methods=['GET'])
+    @api.route('/types/<int:type_id>/parameters', methods=['GET'])
     def get_type_parameters(type_id):
         elem = doc.GetElement(ElementId(type_id))
         if elem is None:
@@ -127,7 +127,7 @@ def _get_routes(api):
                 pass
         return Response(data=results)
 
-    @api.route('/revit/types/<int:type_id>/parameters/set', methods=['POST'])
+    @api.route('/types/<int:type_id>/parameters/set', methods=['POST'])
     def set_type_parameter(type_id, request):
         body = request.data
         elem = doc.GetElement(ElementId(type_id))
@@ -143,7 +143,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'type_id': type_id, 'param_name': body['param_name'], 'old_value': old_val, 'new_value': body['value']})
 
-    @api.route('/revit/parameters/project', methods=['GET'])
+    @api.route('/parameters/project', methods=['GET'])
     def list_project_parameters():
         binding_map = doc.ParameterBindings
         it = binding_map.ForwardIterator()
@@ -159,7 +159,7 @@ def _get_routes(api):
             results.append({'name': defn.Name, 'binding_type': binding.GetType().Name, 'data_type': str(defn.ParameterType) if hasattr(defn, 'ParameterType') else 'Unknown', 'categories': cats})
         return Response(data=results)
 
-    @api.route('/revit/parameters/bulk_update', methods=['POST'])
+    @api.route('/parameters/bulk_update', methods=['POST'])
     def bulk_update(request):
         body = request.data
         category_name = body.get('category')

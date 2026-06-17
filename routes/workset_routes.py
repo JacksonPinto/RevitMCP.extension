@@ -10,11 +10,11 @@ doc = _uidoc.Document if _uidoc else None
 
 def _get_routes(api):
 
-    @api.route('/revit/worksets/status', methods=['GET'])
+    @api.route('/worksets/status', methods=['GET'])
     def workset_status():
         return Response(data={'workshared': doc.IsWorkshared, 'path': doc.PathName if doc.IsWorkshared else None})
 
-    @api.route('/revit/worksets', methods=['GET'])
+    @api.route('/worksets', methods=['GET'])
     def list_worksets():
         if not doc.IsWorkshared:
             return Response(status_code=400, data={'error': 'Model is not workshared'})
@@ -23,7 +23,7 @@ def _get_routes(api):
             results.append({'name': ws.Name, 'workset_id': ws.Id.IntegerValue, 'is_open': ws.IsOpen, 'owner': ws.Owner or None})
         return Response(data=results)
 
-    @api.route('/revit/worksets/create', methods=['POST'])
+    @api.route('/worksets/create', methods=['POST'])
     def create_workset(request):
         name = request.data.get('name')
         with Transaction(doc, 'MCP: Create Workset') as t:
@@ -33,7 +33,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'name': name, 'workset_id': ws.Id.IntegerValue})
 
-    @api.route('/revit/elements/<int:element_id>/workset', methods=['GET'])
+    @api.route('/elements/<int:element_id>/workset', methods=['GET'])
     def get_element_workset(element_id):
         elem = doc.GetElement(ElementId(element_id))
         if not elem:
@@ -43,7 +43,7 @@ def _get_routes(api):
         ws = doc.GetWorksetTable().GetWorkset(ws_id)
         return Response(data={'element_id': element_id, 'workset_name': ws.Name, 'workset_id': ws_id.IntegerValue})
 
-    @api.route('/revit/worksets/set_elements', methods=['POST'])
+    @api.route('/worksets/set_elements', methods=['POST'])
     def set_element_workset(request):
         body = request.data
         ws_name = body.get('workset_name')
@@ -66,7 +66,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'moved_count': moved, 'workset_name': ws_name})
 
-    @api.route('/revit/worksets/set_active', methods=['POST'])
+    @api.route('/worksets/set_active', methods=['POST'])
     def set_active_workset(request):
         ws_name = request.data.get('workset_name')
         target_ws = next((ws for ws in FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset) if ws.Name == ws_name), None)

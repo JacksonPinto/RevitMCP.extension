@@ -12,7 +12,7 @@ def _mat_to_dict(m):
 
 def _get_routes(api):
 
-    @api.route('/revit/materials', methods=['GET'])
+    @api.route('/materials', methods=['GET'])
     def list_materials(request):
         search = request.params.get('search', '').lower()
         results = []
@@ -22,7 +22,7 @@ def _get_routes(api):
             results.append(_mat_to_dict(m))
         return Response(data=results)
 
-    @api.route('/revit/materials/by_name', methods=['GET'])
+    @api.route('/materials/by_name', methods=['GET'])
     def get_material(request):
         name = request.params.get('material_name')
         m = next((m for m in FilteredElementCollector(doc).OfClass(Material) if m.Name == name), None)
@@ -30,7 +30,7 @@ def _get_routes(api):
             return Response(status_code=404, data={'error': "Material '{}' not found".format(name)})
         return Response(data=_mat_to_dict(m))
 
-    @api.route('/revit/materials/create', methods=['POST'])
+    @api.route('/materials/create', methods=['POST'])
     def create_material(request):
         body = request.data
         with Transaction(doc, 'MCP: Create Material') as t:
@@ -43,7 +43,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'element_id': mat_id.IntegerValue, 'name': body['material_name']})
 
-    @api.route('/revit/materials/duplicate', methods=['POST'])
+    @api.route('/materials/duplicate', methods=['POST'])
     def duplicate_material(request):
         body = request.data
         src = next((m for m in FilteredElementCollector(doc).OfClass(Material) if m.Name == body['source_name']), None)

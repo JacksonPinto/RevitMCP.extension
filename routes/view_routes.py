@@ -21,7 +21,7 @@ def _find_level(level_name):
 
 def _get_routes(api):
 
-    @api.route('/revit/views', methods=['GET'])
+    @api.route('/views', methods=['GET'])
     def list_views(request):
         vtype = request.params.get('view_type')
         search = request.params.get('search', '').lower()
@@ -37,7 +37,7 @@ def _get_routes(api):
             results.append(_view_to_dict(v))
         return Response(data=results)
 
-    @api.route('/revit/views/by_name', methods=['GET'])
+    @api.route('/views/by_name', methods=['GET'])
     def get_view_by_name(request):
         name = request.params.get('view_name')
         for v in FilteredElementCollector(doc).OfClass(View):
@@ -45,12 +45,12 @@ def _get_routes(api):
                 return Response(data=_view_to_dict(v))
         return Response(status_code=404, data={'error': "View '{}' not found".format(name)})
 
-    @api.route('/revit/views/templates', methods=['GET'])
+    @api.route('/views/templates', methods=['GET'])
     def list_templates():
         results = [_view_to_dict(v) for v in FilteredElementCollector(doc).OfClass(View) if v.IsTemplate]
         return Response(data=results)
 
-    @api.route('/revit/views/create/floor_plan', methods=['POST'])
+    @api.route('/views/create/floor_plan', methods=['POST'])
     def create_floor_plan(request):
         body = request.data
         level = _find_level(body['level_name'])
@@ -70,7 +70,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'element_id': view.Id.IntegerValue, 'name': view.Name})
 
-    @api.route('/revit/views/duplicate', methods=['POST'])
+    @api.route('/views/duplicate', methods=['POST'])
     def duplicate_view(request):
         body = request.data
         src_name = body.get('source_view_name')
@@ -91,7 +91,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'element_id': new_id.IntegerValue, 'name': new_name})
 
-    @api.route('/revit/views/apply_template', methods=['POST'])
+    @api.route('/views/apply_template', methods=['POST'])
     def apply_template(request):
         body = request.data
         view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['view_name']), None)
@@ -106,7 +106,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'view_name': body['view_name'], 'template_applied': body['template_name']})
 
-    @api.route('/revit/views/set_scale', methods=['POST'])
+    @api.route('/views/set_scale', methods=['POST'])
     def set_scale(request):
         body = request.data
         view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['view_name']), None)
@@ -119,7 +119,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'view_name': body['view_name'], 'old_scale': old_scale, 'new_scale': view.Scale})
 
-    @api.route('/revit/views/set_detail_level', methods=['POST'])
+    @api.route('/views/set_detail_level', methods=['POST'])
     def set_detail_level(request):
         from Autodesk.Revit.DB import ViewDetailLevel
         body = request.data
@@ -133,7 +133,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'view_name': body['view_name'], 'detail_level': body['detail_level']})
 
-    @api.route('/revit/views/rename', methods=['POST'])
+    @api.route('/views/rename', methods=['POST'])
     def rename_view(request):
         body = request.data
         view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['old_name']), None)
@@ -145,7 +145,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'old_name': body['old_name'], 'new_name': body['new_name']})
 
-    @api.route('/revit/views', methods=['DELETE'])
+    @api.route('/views', methods=['DELETE'])
     def delete_view(request):
         view_name = request.data.get('view_name')
         view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == view_name), None)

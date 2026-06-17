@@ -26,7 +26,7 @@ if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 try:
     from pyrevit import routes
-    api = routes.API('revit-mcp')
+    api = routes.API('revit')
     from routes import analysis_routes, conduit_routes, element_routes, family_routes, level_routes, material_routes, mep_routes, parameter_routes, project_routes, room_routes, sheet_routes, view_routes, workset_routes
     _MODULES = [project_routes, element_routes, parameter_routes, family_routes, view_routes, sheet_routes, workset_routes, level_routes, room_routes, material_routes, mep_routes, analysis_routes, conduit_routes]
     _registered = 0

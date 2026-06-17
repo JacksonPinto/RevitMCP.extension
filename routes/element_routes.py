@@ -26,7 +26,7 @@ def _elem_to_dict(elem):
 
 def _get_routes(api):
 
-    @api.route('/revit/elements/<int:element_id>', methods=['GET'])
+    @api.route('/elements/<int:element_id>', methods=['GET'])
     def get_element(element_id):
         elem_id = ElementId(element_id)
         elem = doc.GetElement(elem_id)
@@ -51,7 +51,7 @@ def _get_routes(api):
         d['parameters'] = params_list
         return Response(data=d)
 
-    @api.route('/revit/elements/by_category', methods=['GET'])
+    @api.route('/elements/by_category', methods=['GET'])
     def get_elements_by_category(request):
         category_name = request.params.get('category')
         level_name = request.params.get('level_name')
@@ -73,7 +73,7 @@ def _get_routes(api):
                     results.append(_elem_to_dict(elem))
         return Response(data=results)
 
-    @api.route('/revit/elements/by_type/<int:type_id>', methods=['GET'])
+    @api.route('/elements/by_type/<int:type_id>', methods=['GET'])
     def get_elements_by_type(type_id):
         from Autodesk.Revit.DB import FamilyInstanceFilter
         target_id = ElementId(type_id)
@@ -84,7 +84,7 @@ def _get_routes(api):
                 results.append(_elem_to_dict(elem))
         return Response(data=results)
 
-    @api.route('/revit/elements/find_by_parameter', methods=['POST'])
+    @api.route('/elements/find_by_parameter', methods=['POST'])
     def find_by_parameter(request):
         body = request.data
         category_name = body.get('category')
@@ -110,7 +110,7 @@ def _get_routes(api):
                 results.append(_elem_to_dict(elem))
         return Response(data=results)
 
-    @api.route('/revit/selection', methods=['GET'])
+    @api.route('/selection', methods=['GET'])
     def get_selection():
         sel = uidoc.Selection.GetElementIds()
         results = []
@@ -120,7 +120,7 @@ def _get_routes(api):
                 results.append(_elem_to_dict(elem))
         return Response(data=results)
 
-    @api.route('/revit/selection', methods=['POST'])
+    @api.route('/selection', methods=['POST'])
     def set_selection(request):
         ids = [ElementId(i) for i in request.data.get('element_ids', [])]
         from System.Collections.Generic import List as NetList
@@ -128,14 +128,14 @@ def _get_routes(api):
         uidoc.Selection.SetElementIds(id_list)
         return Response(data={'selected_count': len(ids)})
 
-    @api.route('/revit/elements/count', methods=['GET'])
+    @api.route('/elements/count', methods=['GET'])
     def count_by_category(request):
         category_name = request.params.get('category')
         instance_count = sum((1 for e in FilteredElementCollector(doc).WhereElementIsNotElementType() if e.Category and e.Category.Name == category_name))
         type_count = sum((1 for e in FilteredElementCollector(doc).WhereElementIsElementType() if e.Category and e.Category.Name == category_name))
         return Response(data={'category': category_name, 'instance_count': instance_count, 'type_count': type_count})
 
-    @api.route('/revit/elements', methods=['DELETE'])
+    @api.route('/elements', methods=['DELETE'])
     def delete_elements(request):
         ids = [ElementId(i) for i in request.data.get('element_ids', [])]
         deleted = []
@@ -155,7 +155,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'deleted_count': len(deleted), 'deleted': deleted, 'failed': failed})
 
-    @api.route('/revit/elements/move', methods=['POST'])
+    @api.route('/elements/move', methods=['POST'])
     def move_elements(request):
         body = request.data
         ids = [ElementId(i) for i in body.get('element_ids', [])]
@@ -172,7 +172,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'moved_count': len(moved), 'element_ids': moved})
 
-    @api.route('/revit/elements/copy', methods=['POST'])
+    @api.route('/elements/copy', methods=['POST'])
     def copy_elements(request):
         body = request.data
         ids = [ElementId(i) for i in body.get('element_ids', [])]
@@ -187,7 +187,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'new_element_ids': new_ids, 'count': len(new_ids)})
 
-    @api.route('/revit/elements/pin', methods=['POST'])
+    @api.route('/elements/pin', methods=['POST'])
     def pin_elements(request):
         body = request.data
         ids = [ElementId(i) for i in body.get('element_ids', [])]
@@ -203,7 +203,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'changed_count': changed, 'pinned': pinned})
 
-    @api.route('/revit/elements/<int:element_id>/location', methods=['GET'])
+    @api.route('/elements/<int:element_id>/location', methods=['GET'])
     def get_location(element_id):
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
@@ -219,7 +219,7 @@ def _get_routes(api):
             return Response(data={'type': 'curve', 'start': {'x': s.X, 'y': s.Y, 'z': s.Z}, 'end': {'x': e.X, 'y': e.Y, 'z': e.Z}, 'length': curve.Length})
         return Response(data={'type': 'unknown'})
 
-    @api.route('/revit/elements/<int:element_id>/dependencies', methods=['GET'])
+    @api.route('/elements/<int:element_id>/dependencies', methods=['GET'])
     def get_dependencies(element_id):
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:

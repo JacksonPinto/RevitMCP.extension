@@ -18,20 +18,20 @@ doc = _uidoc.Document if _uidoc else None
 def _get_routes(api):
     """Register all project-related routes on the provided API object."""
 
-    @api.route('/revit/ping', methods=['GET'])
+    @api.route('/ping', methods=['GET'])
     def ping():
         return Response(data={'status': 'ok', 'revit_version': app.VersionNumber, 'revit_build': app.VersionBuild, 'pyrevit_version': 'pyrevit', 'document_open': doc is not None and (not doc.IsDetached), 'document_title': doc.Title if doc else None})
 
-    @api.route('/revit/application/version', methods=['GET'])
+    @api.route('/application/version', methods=['GET'])
     def get_version():
         return Response(data={'version_number': app.VersionNumber, 'version_name': app.VersionName, 'version_build': app.VersionBuild, 'sub_version': app.SubVersionNumber, 'language': str(app.Language)})
 
-    @api.route('/revit/project/info', methods=['GET'])
+    @api.route('/project/info', methods=['GET'])
     def get_project_info():
         info = doc.ProjectInformation
         return Response(data={'project_name': info.Name, 'project_number': info.Number, 'client_name': info.ClientName, 'building_name': info.BuildingName, 'address': info.Address, 'issue_date': info.IssueDate, 'status': info.Status, 'author': info.Author, 'file_path': doc.PathName, 'revit_version': app.VersionNumber, 'is_workshared': doc.IsWorkshared, 'is_detached': doc.IsDetached})
 
-    @api.route('/revit/project/info/set', methods=['POST'])
+    @api.route('/project/info/set', methods=['POST'])
     def set_project_parameter(request):
         body = request.data
         param_name = body.get('param_name')
@@ -48,7 +48,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'param_name': param_name, 'old_value': old_value, 'new_value': value})
 
-    @api.route('/revit/project/stats', methods=['GET'])
+    @api.route('/project/stats', methods=['GET'])
     def get_document_stats():
         collector = FilteredElementCollector(doc)
         all_elements = collector.WhereElementIsNotElementType().ToElements()
@@ -59,7 +59,7 @@ def _get_routes(api):
                 category_counts[cat_name] = category_counts.get(cat_name, 0) + 1
         return Response(data={'total_elements': len(list(all_elements)), 'category_counts': category_counts, 'file_path': doc.PathName})
 
-    @api.route('/revit/project/warnings', methods=['GET'])
+    @api.route('/project/warnings', methods=['GET'])
     def get_warnings():
         warnings = doc.GetWarnings()
         result = []
@@ -67,7 +67,7 @@ def _get_routes(api):
             result.append({'description': w.GetDescriptionText(), 'element_ids': [eid.IntegerValue for eid in w.GetFailingElements()]})
         return Response(data=result)
 
-    @api.route('/revit/project/links', methods=['GET'])
+    @api.route('/project/links', methods=['GET'])
     def get_links():
         from Autodesk.Revit.DB import RevitLinkInstance
         collector = FilteredElementCollector(doc).OfClass(RevitLinkInstance)

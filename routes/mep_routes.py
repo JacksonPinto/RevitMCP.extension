@@ -12,7 +12,7 @@ doc = _uidoc.Document if _uidoc else None
 
 def _get_routes(api):
 
-    @api.route('/revit/mep/systems', methods=['GET'])
+    @api.route('/mep/systems', methods=['GET'])
     def list_systems(request):
         system_type = request.params.get('system_type')
         results = []
@@ -32,7 +32,7 @@ def _get_routes(api):
             pass
         return Response(data=results)
 
-    @api.route('/revit/mep/ducts', methods=['GET'])
+    @api.route('/mep/ducts', methods=['GET'])
     def list_ducts(request):
         level_name = request.params.get('level_name')
         results = []
@@ -44,7 +44,7 @@ def _get_routes(api):
             pass
         return Response(data=results)
 
-    @api.route('/revit/mep/pipes', methods=['GET'])
+    @api.route('/mep/pipes', methods=['GET'])
     def list_pipes(request):
         results = []
         try:
@@ -54,7 +54,7 @@ def _get_routes(api):
             pass
         return Response(data=results)
 
-    @api.route('/revit/mep/circuits', methods=['GET'])
+    @api.route('/mep/circuits', methods=['GET'])
     def list_circuits():
         results = []
         try:
@@ -64,7 +64,7 @@ def _get_routes(api):
             pass
         return Response(data=results)
 
-    @api.route('/revit/mep/mechanical_equipment', methods=['GET'])
+    @api.route('/mep/mechanical_equipment', methods=['GET'])
     def list_mech_equip(request):
         level_name = request.params.get('level_name')
         results = []
@@ -76,14 +76,14 @@ def _get_routes(api):
             results.append({'element_id': elem.Id.IntegerValue, 'name': elem.Name, 'category': 'Mechanical Equipment'})
         return Response(data=results)
 
-    @api.route('/revit/mep/light_fixtures', methods=['GET'])
+    @api.route('/mep/light_fixtures', methods=['GET'])
     def list_lights(request):
         results = []
         for elem in FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_LightingFixtures).WhereElementIsNotElementType():
             results.append({'element_id': elem.Id.IntegerValue, 'name': elem.Name})
         return Response(data=results)
 
-    @api.route('/revit/mep/plumbing_fixtures', methods=['GET'])
+    @api.route('/mep/plumbing_fixtures', methods=['GET'])
     def list_plumbing(request):
         results = []
         for elem in FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_PlumbingFixtures).WhereElementIsNotElementType():

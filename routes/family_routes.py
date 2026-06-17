@@ -13,7 +13,7 @@ doc = _uidoc.Document if _uidoc else None
 
 def _get_routes(api):
 
-    @api.route('/revit/families/categories', methods=['GET'])
+    @api.route('/families/categories', methods=['GET'])
     def list_family_categories():
         families = FilteredElementCollector(doc).OfClass(Family).ToElements()
         cats = {}
@@ -23,7 +23,7 @@ def _get_routes(api):
             cats[cat_name] = cats.get(cat_name, 0) + 1
         return Response(data=[{'category': k, 'family_count': v} for (k, v) in sorted(cats.items())])
 
-    @api.route('/revit/families', methods=['GET'])
+    @api.route('/families', methods=['GET'])
     def list_families(request):
         category_filter = request.params.get('category')
         search = request.params.get('search', '').lower()
@@ -40,7 +40,7 @@ def _get_routes(api):
             results.append({'family_name': fam.Name, 'category': fam.FamilyCategory.Name if fam.FamilyCategory else None, 'is_system_family': fam.IsSystemFamily, 'is_in_place': fam.IsInPlace, 'type_count': type_count, 'element_id': fam.Id.IntegerValue})
         return Response(data=results)
 
-    @api.route('/revit/families/types', methods=['GET'])
+    @api.route('/families/types', methods=['GET'])
     def list_family_types(request):
         family_name = request.params.get('family_name')
         families = FilteredElementCollector(doc).OfClass(Family).ToElements()
@@ -54,7 +54,7 @@ def _get_routes(api):
                 results.append({'type_name': sym.Name, 'element_id': sym.Id.IntegerValue, 'is_active': sym.IsActive})
         return Response(data=results)
 
-    @api.route('/revit/families/place', methods=['POST'])
+    @api.route('/families/place', methods=['POST'])
     def place_family(request):
         body = request.data
         family_name = body.get('family_name')
@@ -98,7 +98,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'element_id': instance.Id.IntegerValue, 'family': family_name, 'type': type_name})
 
-    @api.route('/revit/families/load', methods=['POST'])
+    @api.route('/families/load', methods=['POST'])
     def load_family(request):
         rfa_path = request.data.get('rfa_path')
         family = clr.Reference[Family]()

@@ -15,7 +15,7 @@ def _room_to_dict(room):
 
 def _get_routes(api):
 
-    @api.route('/revit/rooms', methods=['GET'])
+    @api.route('/rooms', methods=['GET'])
     def list_rooms(request):
         level_name = request.params.get('level_name')
         search = request.params.get('search', '').lower()
@@ -32,7 +32,7 @@ def _get_routes(api):
             results.append(d)
         return Response(data=results)
 
-    @api.route('/revit/rooms/by_number', methods=['GET'])
+    @api.route('/rooms/by_number', methods=['GET'])
     def get_room(request):
         number = request.params.get('room_number')
         room = next((r for r in FilteredElementCollector(doc).WherePasses(RoomFilter()) if r.Number == number), None)
@@ -40,7 +40,7 @@ def _get_routes(api):
             return Response(status_code=404, data={'error': "Room '{}' not found".format(number)})
         return Response(data=_room_to_dict(room))
 
-    @api.route('/revit/rooms/create', methods=['POST'])
+    @api.route('/rooms/create', methods=['POST'])
     def create_room(request):
         body = request.data
         level = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == body['level_name']), None)
@@ -58,7 +58,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'element_id': room.Id.IntegerValue, 'number': room.Number, 'name': room.Name})
 
-    @api.route('/revit/rooms/at_point', methods=['GET'])
+    @api.route('/rooms/at_point', methods=['GET'])
     def get_room_at_point(request):
         from Autodesk.Revit.DB import XYZ
         x = float(request.params.get('x', 0))
@@ -73,7 +73,7 @@ def _get_routes(api):
             return Response(data={'room': _room_to_dict(room)})
         return Response(data={'room': None})
 
-    @api.route('/revit/spaces', methods=['GET'])
+    @api.route('/spaces', methods=['GET'])
     def list_spaces(request):
         level_name = request.params.get('level_name')
         results = []

@@ -22,7 +22,7 @@ def _find_sheet(number):
 
 def _get_routes(api):
 
-    @api.route('/revit/sheets', methods=['GET'])
+    @api.route('/sheets', methods=['GET'])
     def list_sheets(request):
         search = request.params.get('search', '').lower()
         results = []
@@ -32,7 +32,7 @@ def _get_routes(api):
             results.append(_sheet_to_dict(s))
         return Response(data=results)
 
-    @api.route('/revit/sheets/by_number', methods=['GET'])
+    @api.route('/sheets/by_number', methods=['GET'])
     def get_sheet(request):
         number = request.params.get('sheet_number')
         sheet = _find_sheet(number)
@@ -40,7 +40,7 @@ def _get_routes(api):
             return Response(status_code=404, data={'error': "Sheet '{}' not found".format(number)})
         return Response(data=_sheet_to_dict(sheet))
 
-    @api.route('/revit/sheets/create', methods=['POST'])
+    @api.route('/sheets/create', methods=['POST'])
     def create_sheet(request):
         body = request.data
         tb_id = ElementId.InvalidElementId
@@ -62,7 +62,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'element_id': sheet.Id.IntegerValue, 'sheet_number': sheet.SheetNumber, 'sheet_name': sheet.Name})
 
-    @api.route('/revit/sheets/create_bulk', methods=['POST'])
+    @api.route('/sheets/create_bulk', methods=['POST'])
     def create_sheets_bulk(request):
         body = request.data
         sheets_data = body.get('sheets', [])
@@ -88,7 +88,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'created_count': len(created), 'created': created, 'failed': failed})
 
-    @api.route('/revit/sheets/place_view', methods=['POST'])
+    @api.route('/sheets/place_view', methods=['POST'])
     def place_view(request):
         body = request.data
         view_name = body.get('view_name')
@@ -112,7 +112,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'viewport_id': vp.Id.IntegerValue, 'view_name': view_name, 'sheet_number': sheet_number})
 
-    @api.route('/revit/sheets/views', methods=['GET'])
+    @api.route('/sheets/views', methods=['GET'])
     def list_views_on_sheet(request):
         number = request.params.get('sheet_number')
         sheet = _find_sheet(number)
@@ -124,7 +124,7 @@ def _get_routes(api):
             results.append({'viewport_id': vp.Id.IntegerValue, 'view_name': v.Name if v else None, 'view_type': v.ViewType.ToString() if v else None})
         return Response(data=results)
 
-    @api.route('/revit/sheets/remove_view', methods=['DELETE'])
+    @api.route('/sheets/remove_view', methods=['DELETE'])
     def remove_view(request):
         body = request.data
         sheet = _find_sheet(body['sheet_number'])
@@ -139,7 +139,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'removed': body['view_name'], 'from_sheet': body['sheet_number']})
 
-    @api.route('/revit/sheets/set_parameter', methods=['POST'])
+    @api.route('/sheets/set_parameter', methods=['POST'])
     def set_sheet_parameter(request):
         body = request.data
         sheet = _find_sheet(body['sheet_number'])
@@ -155,7 +155,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'param_name': body['param_name'], 'old_value': old_val, 'new_value': body['value']})
 
-    @api.route('/revit/sheets/renumber', methods=['POST'])
+    @api.route('/sheets/renumber', methods=['POST'])
     def renumber_sheet(request):
         body = request.data
         sheet = _find_sheet(body['old_number'])
@@ -167,7 +167,7 @@ def _get_routes(api):
             t.Commit()
         return Response(data={'old_number': body['old_number'], 'new_number': body['new_number']})
 
-    @api.route('/revit/sheets/titleblocks', methods=['GET'])
+    @api.route('/sheets/titleblocks', methods=['GET'])
     def list_titleblocks():
         results = []
         for sym in FilteredElementCollector(doc).OfClass(FamilySymbol):

@@ -166,7 +166,7 @@ def _traverse_circuit(system):
 
 def _get_routes(api):
 
-    @api.route('/revit/conduit/circuits', methods=['GET'])
+    @api.route('/conduit/circuits', methods=['GET'])
     def list_circuits(request):
         panel_filter = request.params.get('panel_name', '').lower()
         type_filter = request.params.get('circuit_type', '').lower()
@@ -186,7 +186,7 @@ def _get_routes(api):
                 pass
         return Response(data=results)
 
-    @api.route('/revit/conduit/circuits/<int:circuit_id>/analyze_connectors', methods=['GET'])
+    @api.route('/conduit/circuits/<int:circuit_id>/analyze_connectors', methods=['GET'])
     def analyze_connectors(circuit_id):
         system = doc.GetElement(ElementId(circuit_id))
         if not isinstance(system, ElectricalSystem):
@@ -211,14 +211,14 @@ def _get_routes(api):
                 problems.append(s)
         return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'panel_name': panel.Name if panel else None, 'panel_id': panel.Id.IntegerValue if panel else None, 'panel_has_conduit_connector': panel_has_conduit, 'element_count': len(ready) + len(problems), 'ready_elements': ready, 'problem_elements': problems, 'can_build': len(problems) == 0 and panel_has_conduit})
 
-    @api.route('/revit/conduit/types', methods=['GET'])
+    @api.route('/conduit/types', methods=['GET'])
     def list_conduit_types():
         results = []
         for ct in FilteredElementCollector(doc).OfClass(ConduitType):
             results.append({'element_id': ct.Id.IntegerValue, 'name': ct.Name, 'family_name': ct.FamilyName if hasattr(ct, 'FamilyName') else ct.Name})
         return Response(data=results)
 
-    @api.route('/revit/conduit/types/<int:type_id>/sizes', methods=['GET'])
+    @api.route('/conduit/types/<int:type_id>/sizes', methods=['GET'])
     def get_conduit_sizes(type_id):
         ct = doc.GetElement(ElementId(type_id))
         if ct is None:
@@ -229,7 +229,7 @@ def _get_routes(api):
             results.append({'trade_size': sz / MM_PER_FOOT, 'trade_size_label': '{}mm'.format(sz), 'inside_diameter': sz * 0.85 / MM_PER_FOOT, 'outside_diameter': sz * 1.05 / MM_PER_FOOT})
         return Response(data=results)
 
-    @api.route('/revit/conduit/circuits/<int:circuit_id>/sequence', methods=['GET'])
+    @api.route('/conduit/circuits/<int:circuit_id>/sequence', methods=['GET'])
     def get_sequence(circuit_id):
         system = doc.GetElement(ElementId(circuit_id))
         if not isinstance(system, ElectricalSystem):
@@ -263,7 +263,7 @@ def _get_routes(api):
             panel_info = {'element_id': panel.Id.IntegerValue, 'name': panel.Name, 'connector_origin': _xyz_dict(p_conn.Origin) if p_conn else None, 'has_conduit_connector': p_conn is not None}
         return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'panel': panel_info, 'sequence': sequence, 'segment_count': max(0, len(ordered) - 1) + (1 if panel else 0), 'total_run_length': total_length})
 
-    @api.route('/revit/conduit/circuits/<int:circuit_id>/build_plan', methods=['GET'])
+    @api.route('/conduit/circuits/<int:circuit_id>/build_plan', methods=['GET'])
     def build_plan(circuit_id):
         system = doc.GetElement(ElementId(circuit_id))
         if not isinstance(system, ElectricalSystem):
@@ -307,7 +307,7 @@ def _get_routes(api):
             recommended_mm = 20
         return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'panel_name': panel.Name if panel else None, 'pre_flight_status': 'needs_family_edits' if problem_families else 'ready', 'steps': steps, 'problem_families': problem_families, 'estimated_total_length': total_length, 'recommended_diameter_mm': recommended_mm})
 
-    @api.route('/revit/conduit/build', methods=['POST'])
+    @api.route('/conduit/build', methods=['POST'])
     def build_conduit(request):
         body = request.data
         circuit_id = int(body.get('circuit_id'))
@@ -443,7 +443,7 @@ def _get_routes(api):
                 return Response(status_code=500, data={'error': 'Transaction failed and was rolled back: {}'.format(tx_err), 'segments_created_before_error': segments_created})
         return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'conduit_type_name': conduit_type.Name, 'diameter': diameter, 'routing_strategy': routing_strategy, 'segments_created': segments_created, 'fittings_created': fittings_created, 'skipped_connections': skipped_connections, 'total_length': total_length, 'success': len(skipped_connections) == 0, 'warnings': warnings})
 
-    @api.route('/revit/conduit/list', methods=['GET'])
+    @api.route('/conduit/list', methods=['GET'])
     def list_conduits(request):
         level_name = request.params.get('level_name')
         type_name = request.params.get('conduit_type_name')
@@ -476,7 +476,7 @@ def _get_routes(api):
             results.append({'element_id': c.Id.IntegerValue, 'conduit_type': ctype_name, 'diameter': diam, 'length': c.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble() if c.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.CURVE_ELEM_LENGTH) else 0.0, 'level': level, 'start': start, 'end': end})
         return Response(data=results)
 
-    @api.route('/revit/conduit/element/<int:element_id>/connectors', methods=['GET'])
+    @api.route('/conduit/element/<int:element_id>/connectors', methods=['GET'])
     def get_element_connectors(element_id):
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
@@ -500,7 +500,7 @@ def _get_routes(api):
             fix_instruction = "Family '{}' has no conduit connector. To add one:\n1. Select the element → Edit Family (opens family editor).\n2. In the family editor: Manage tab → MEP Settings → Connectors → Add Connector.\n3. Set: System Classification = Conduit (Electrical), Connector Type = End, Flow Direction = Bidirectional.\n4. Place the connector at the entry/exit point where conduit attaches.\n5. Finish the family and reload it into the project (overwrite existing).\n6. Re-run analyze_circuit_connectors to confirm the fix.".format(fam)
         return Response(data={**s, 'has_conduit_connectors': len(conduit_conns) > 0, 'connectors': connector_list, 'fix_instruction': fix_instruction})
 
-    @api.route('/revit/conduit/by_circuit', methods=['DELETE'])
+    @api.route('/conduit/by_circuit', methods=['DELETE'])
     def delete_circuit_conduits(request):
         circuit_id = int(request.data.get('circuit_id'))
         system = doc.GetElement(ElementId(circuit_id))

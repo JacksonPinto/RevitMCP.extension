@@ -10,7 +10,7 @@ doc = _uidoc.Document if _uidoc else None
 
 def _get_routes(api):
 
-    @api.route('/revit/elements/<int:element_id>/bounding_box', methods=['GET'])
+    @api.route('/elements/<int:element_id>/bounding_box', methods=['GET'])
     def get_bounding_box(element_id):
         elem = doc.GetElement(ElementId(element_id))
         if not elem:
@@ -20,7 +20,7 @@ def _get_routes(api):
             return Response(data={'element_id': element_id, 'bounding_box': None})
         return Response(data={'min': {'x': bb.Min.X, 'y': bb.Min.Y, 'z': bb.Min.Z}, 'max': {'x': bb.Max.X, 'y': bb.Max.Y, 'z': bb.Max.Z}, 'width': abs(bb.Max.X - bb.Min.X), 'depth': abs(bb.Max.Y - bb.Min.Y), 'height': abs(bb.Max.Z - bb.Min.Z)})
 
-    @api.route('/revit/model/extents', methods=['GET'])
+    @api.route('/model/extents', methods=['GET'])
     def get_model_extents():
         all_elems = FilteredElementCollector(doc).WhereElementIsNotElementType().ToElements()
         min_x = min_y = min_z = float('inf')
@@ -39,7 +39,7 @@ def _get_routes(api):
                 pass
         return Response(data={'min': {'x': min_x, 'y': min_y, 'z': min_z}, 'max': {'x': max_x, 'y': max_y, 'z': max_z}, 'width': abs(max_x - min_x), 'depth': abs(max_y - min_y), 'height': abs(max_z - min_z)})
 
-    @api.route('/revit/analysis/room_areas', methods=['GET'])
+    @api.route('/analysis/room_areas', methods=['GET'])
     def room_areas(request):
         level_name = request.params.get('level_name')
         level_areas = {}
@@ -59,7 +59,7 @@ def _get_routes(api):
                 row['avg_area'] = row['total_area'] / row['room_count']
         return Response(data=result)
 
-    @api.route('/revit/analysis/area_by_category', methods=['GET'])
+    @api.route('/analysis/area_by_category', methods=['GET'])
     def area_by_category(request):
         category_name = request.params.get('category', 'Floors')
         level_name = request.params.get('level_name')
@@ -81,7 +81,7 @@ def _get_routes(api):
                 breakdown[type_name] = breakdown.get(type_name, 0) + area_val
         return Response(data={'category': category_name, 'total_area': total, 'element_count': len(breakdown), 'breakdown': [{'type_name': k, 'area': v} for (k, v) in breakdown.items()]})
 
-    @api.route('/revit/elements/<int:element_id>/volume', methods=['GET'])
+    @api.route('/elements/<int:element_id>/volume', methods=['GET'])
     def get_volume(element_id):
         elem = doc.GetElement(ElementId(element_id))
         if not elem:
@@ -90,7 +90,7 @@ def _get_routes(api):
         vol = vol_param.AsDouble() if vol_param else 0
         return Response(data={'element_id': element_id, 'volume': vol, 'category': elem.Category.Name if elem.Category else None})
 
-    @api.route('/revit/analysis/elements_in_box', methods=['POST'])
+    @api.route('/analysis/elements_in_box', methods=['POST'])
     def elements_in_box(request):
         body = request.data
         outline = Outline(XYZ(body['min_x'], body['min_y'], body['min_z']), XYZ(body['max_x'], body['max_y'], body['max_z']))
@@ -104,7 +104,7 @@ def _get_routes(api):
             results.append({'element_id': elem.Id.IntegerValue, 'category': elem.Category.Name if elem.Category else None})
         return Response(data=results)
 
-    @api.route('/revit/analysis/clash_detection', methods=['POST'])
+    @api.route('/analysis/clash_detection', methods=['POST'])
     def clash_detection(request):
         body = request.data
         cat_a = body.get('category_a')
@@ -130,7 +130,7 @@ def _get_routes(api):
                     clashes.append({'element_a_id': a.Id.IntegerValue, 'element_b_id': b.Id.IntegerValue, 'overlap_mm': min(overlap_x, overlap_y, overlap_z) * 304.8})
         return Response(data={'clash_count': len(clashes), 'clashes': clashes})
 
-    @api.route('/revit/analysis/model_summary', methods=['GET'])
+    @api.route('/analysis/model_summary', methods=['GET'])
     def model_summary():
         info = doc.ProjectInformation
         all_elems = list(FilteredElementCollector(doc).WhereElementIsNotElementType())
