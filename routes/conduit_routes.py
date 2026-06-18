@@ -525,7 +525,11 @@ def _get_routes(api):
         if not conduit_conns:
             fam = s.get('family_name', elem.Name)
             fix_instruction = "Family '{}' has no conduit connector. To add one:\n1. Select the element → Edit Family (opens family editor).\n2. In the family editor: Manage tab → MEP Settings → Connectors → Add Connector.\n3. Set: System Classification = Conduit (Electrical), Connector Type = End, Flow Direction = Bidirectional.\n4. Place the connector at the entry/exit point where conduit attaches.\n5. Finish the family and reload it into the project (overwrite existing).\n6. Re-run analyze_circuit_connectors to confirm the fix.".format(fam)
-        return Response(data={**s, 'has_conduit_connectors': len(conduit_conns) > 0, 'connectors': connector_list, 'fix_instruction': fix_instruction})
+        _result = dict(s)
+        _result['has_conduit_connectors'] = len(conduit_conns) > 0
+        _result['connectors'] = connector_list
+        _result['fix_instruction'] = fix_instruction
+        return Response(data=_result)
 
     @api.route('/conduit/by_circuit', methods=['DELETE'])
     def delete_circuit_conduits(uiapp, request):
