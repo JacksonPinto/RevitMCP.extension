@@ -28,16 +28,29 @@ if _THIS_DIR not in sys.path:
 try:
     from pyrevit import routes
     api = routes.API('revit')
-    from routes import analysis_routes, conduit_routes, element_routes, family_routes, level_routes, material_routes, mep_routes, parameter_routes, project_routes, room_routes, sheet_routes, view_routes, workset_routes
-    _MODULES = [project_routes, element_routes, parameter_routes, family_routes, view_routes, sheet_routes, workset_routes, level_routes, room_routes, material_routes, mep_routes, analysis_routes, conduit_routes]
+
+    # Import + register each module independently so one bad module
+    # cannot prevent the others from registering.
+    _MODULE_NAMES = [
+        'project_routes', 'element_routes', 'parameter_routes', 'family_routes',
+        'view_routes', 'sheet_routes', 'workset_routes', 'level_routes',
+        'room_routes', 'material_routes', 'mep_routes', 'analysis_routes',
+        'conduit_routes',
+    ]
     _registered = 0
-    for _mod in _MODULES:
+    _failed = []
+    for _name in _MODULE_NAMES:
         try:
+            _mod = __import__('routes.' + _name, fromlist=['_get_routes'])
             _mod._get_routes(api)
             _registered += 1
         except Exception as _modexc:
-            print('[RevitMCP] WARNING: failed to register %s: %s' % (getattr(_mod, '__name__', _mod), _modexc))
-    print('[RevitMCP] Registered %d/%d route modules on http://localhost:48884' % (_registered, len(_MODULES)))
+            _failed.append(_name)
+            print('[RevitMCP] WARNING: %s failed: %s' % (_name, _modexc))
+    print('[RevitMCP] Registered %d/%d route modules on http://localhost:48884'
+          % (_registered, len(_MODULE_NAMES)))
+    if _failed:
+        print('[RevitMCP] Failed modules: %s' % ', '.join(_failed))
 except Exception as e:
     print('[RevitMCP] ERROR registering routes: %s' % e)
     traceback.print_exc()

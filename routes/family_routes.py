@@ -5,7 +5,8 @@ Runs INSIDE Revit. Registered in startup.py.
 """
 import clr
 clr.AddReference('RevitAPI')
-from Autodesk.Revit.DB import ElementId, ElementTransformUtils, Family, FamilyInstance, FamilySymbol, FilteredElementCollector, Level, Line, StructuralType, Transaction, XYZ
+from Autodesk.Revit.DB import ElementId, ElementTransformUtils, Family, FamilyInstance, FamilySymbol, FilteredElementCollector, Level, Line, Transaction, XYZ
+from Autodesk.Revit.DB.Structure import StructuralType
 import math
 from pyrevit.routes import API, Response
 _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
@@ -97,10 +98,10 @@ def _get_routes(api):
                 host = doc.GetElement(ElementId(host_id))
                 instance = doc.Create.NewFamilyInstance(location, symbol, host, None)
             elif level:
-                from Autodesk.Revit.DB import StructuralType
+                from Autodesk.Revit.DB.Structure import StructuralType
                 instance = doc.Create.NewFamilyInstance(location, symbol, level, StructuralType.NonStructural)
             else:
-                from Autodesk.Revit.DB import StructuralType
+                from Autodesk.Revit.DB.Structure import StructuralType
                 instance = doc.Create.NewFamilyInstance(location, symbol, StructuralType.NonStructural)
             if rotation != 0:
                 import math
