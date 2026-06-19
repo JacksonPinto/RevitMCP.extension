@@ -8,22 +8,67 @@ from pyrevit.routes import API, Response
 _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
-def _qp(request):
-    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
-    p = getattr(request, 'params', None)
-    if p is None:
-        return {}
-    if isinstance(p, dict):
-        return p
-    d = {}
+def _unq(s):
+    """Minimal URL-decode for IronPython 2.7 (handles %XX and +)."""
     try:
-        for x in p:
-            k = getattr(x, 'key', None)
-            if k is not None:
-                d[k] = getattr(x, 'value', None)
+        s = s.replace('+', ' ')
+        out = []
+        i = 0
+        while i < len(s):
+            if s[i] == '%' and i + 2 < len(s) + 1:
+                try:
+                    out.append(chr(int(s[i+1:i+3], 16)))
+                    i += 3
+                    continue
+                except Exception:
+                    pass
+            out.append(s[i])
+            i += 1
+        return ''.join(out)
     except Exception:
-        pass
-    return d
+        return s
+
+def _qp(request):
+    """Best-effort query/route params as a dict. Handles: dict; list of objects
+    with .key/.value or .name/.value; list of (key,value) pairs; or a raw query
+    string found on the request (query_string/query/path/uri/url)."""
+    out = {}
+    p = getattr(request, 'params', None)
+    if isinstance(p, dict):
+        out.update(p)
+    elif p:
+        try:
+            for x in p:
+                k = getattr(x, 'key', None)
+                v = getattr(x, 'value', None)
+                if k is None and getattr(x, 'name', None) is not None:
+                    k = x.name
+                    v = getattr(x, 'value', None)
+                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
+                    k, v = x[0], x[1]
+                if k is not None:
+                    out[str(k)] = v
+        except Exception:
+            pass
+    if not out:
+        qs = None
+        for attr in ('query_string', 'query'):
+            val = getattr(request, attr, None)
+            if val and isinstance(val, str):
+                qs = val
+                break
+        if qs is None:
+            for attr in ('uri', 'url', 'path'):
+                val = getattr(request, attr, None)
+                if val and isinstance(val, str) and '?' in val:
+                    qs = val.split('?', 1)[1]
+                    break
+        if qs:
+            for pair in qs.split('&'):
+                if '=' in pair:
+                    k, v = pair.split('=', 1)
+                    out[_unq(k)] = _unq(v)
+    return out
 
 def _idv(eid):
     """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""

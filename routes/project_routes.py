@@ -23,6 +23,28 @@ def _idv(eid):
         return eid.IntegerValue
 
 def _get_routes(api):
+
+    @api.route('/_debug/echo', methods=['GET'])
+    def _debug_echo(uiapp, request):
+        info = {'request_type': type(request).__name__,
+                'request_attrs': [a for a in dir(request) if not a.startswith('_')]}
+        p = getattr(request, 'params', None)
+        info['params_type'] = type(p).__name__
+        info['params_repr'] = repr(p)[:800]
+        items = []
+        try:
+            for x in (p or []):
+                items.append({'type': type(x).__name__, 'repr': repr(x)[:200],
+                              'key': getattr(x, 'key', None), 'value': getattr(x, 'value', None),
+                              'name': getattr(x, 'name', None),
+                              'attrs': [a for a in dir(x) if not a.startswith('_')][:40]})
+        except Exception as ex:
+            items = [{'error': str(ex)}]
+        info['items'] = items
+        for attr in ('path', 'query', 'query_string', 'uri', 'url'):
+            info[attr] = repr(getattr(request, attr, '<none>'))[:300]
+        info['parsed_qp'] = _qp(request)
+        return Response(data=info)
     """Register all project-related routes on the provided API object."""
 
     @api.route('/ping', methods=['GET'])
