@@ -8,6 +8,13 @@ from pyrevit.routes import API, Response
 _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
+
 def _get_routes(api):
 
     @api.route('/worksets/status', methods=['GET'])
@@ -26,7 +33,7 @@ def _get_routes(api):
             return Response(status_code=400, data={'error': 'Model is not workshared'})
         results = []
         for ws in FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset):
-            results.append({'name': ws.Name, 'workset_id': ws.Id.IntegerValue, 'is_open': ws.IsOpen, 'owner': ws.Owner or None})
+            results.append({'name': ws.Name, 'workset_id': _idv(ws.Id), 'is_open': ws.IsOpen, 'owner': ws.Owner or None})
         return Response(data=results)
 
     @api.route('/worksets/create', methods=['POST'])
@@ -40,7 +47,7 @@ def _get_routes(api):
             from Autodesk.Revit.DB import Workset
             ws = Workset.Create(doc, name)
             t.Commit()
-        return Response(data={'name': name, 'workset_id': ws.Id.IntegerValue})
+        return Response(data={'name': name, 'workset_id': _idv(ws.Id)})
 
     @api.route('/elements/<int:element_id>/workset', methods=['GET'])
     def get_element_workset(uiapp, element_id):
@@ -53,7 +60,7 @@ def _get_routes(api):
         ws_param = elem.get_Parameter(clr.GetClrType(Autodesk.Revit.DB.BuiltInParameter).WorksetId)
         ws_id = elem.WorksetId
         ws = doc.GetWorksetTable().GetWorkset(ws_id)
-        return Response(data={'element_id': element_id, 'workset_name': ws.Name, 'workset_id': ws_id.IntegerValue})
+        return Response(data={'element_id': element_id, 'workset_name': ws.Name, 'workset_id': _idv(ws_id)})
 
     @api.route('/worksets/set_elements', methods=['POST'])
     def set_element_workset(uiapp, request):
@@ -76,7 +83,7 @@ def _get_routes(api):
                     from Autodesk.Revit.DB import WorksetId
                     ws_param = elem.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ELEM_PARTITION_PARAM)
                     if ws_param and (not ws_param.IsReadOnly):
-                        ws_param.Set(target_ws.Id.IntegerValue)
+                        ws_param.Set(_idv(target_ws.Id))
                         moved += 1
             t.Commit()
         return Response(data={'moved_count': moved, 'workset_name': ws_name})

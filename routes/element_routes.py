@@ -14,7 +14,7 @@ uidoc = __revit__.ActiveUIDocument
 
 def _elem_to_dict(elem):
     """Convert a Revit element to a summary dict."""
-    d = {'element_id': elem.Id.IntegerValue, 'category': elem.Category.Name if elem.Category else None, 'name': elem.Name}
+    d = {'element_id': _idv(elem.Id), 'category': elem.Category.Name if elem.Category else None, 'name': elem.Name}
     type_elem = doc.GetElement(elem.GetTypeId()) if elem.GetTypeId() != ElementId.InvalidElementId else None
     if type_elem:
         d['type_name'] = type_elem.Name
@@ -41,6 +41,13 @@ def _qp(request):
         pass
     return d
 
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
+
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>', methods=['GET'])
@@ -65,7 +72,7 @@ def _get_routes(api):
                 elif param.StorageType.ToString() == 'Integer':
                     val = param.AsInteger()
                 elif param.StorageType.ToString() == 'ElementId':
-                    val = param.AsElementId().IntegerValue
+                    val = _idv(param.AsElementId())
                 params_list.append({'name': param.Definition.Name, 'value': val, 'storage_type': param.StorageType.ToString(), 'read_only': param.IsReadOnly, 'group': param.Definition.ParameterGroup.ToString() if hasattr(param.Definition, 'ParameterGroup') else None})
             except Exception:
                 pass
@@ -196,11 +203,11 @@ def _get_routes(api):
                 if elem and (not elem.Pinned):
                     try:
                         doc.Delete(eid)
-                        deleted.append(eid.IntegerValue)
+                        deleted.append(_idv(eid))
                     except Exception as ex:
-                        failed.append({'element_id': eid.IntegerValue, 'reason': str(ex)})
+                        failed.append({'element_id': _idv(eid), 'reason': str(ex)})
                 elif elem and elem.Pinned:
-                    failed.append({'element_id': eid.IntegerValue, 'reason': 'Element is pinned'})
+                    failed.append({'element_id': _idv(eid), 'reason': 'Element is pinned'})
             t.Commit()
         return Response(data={'deleted_count': len(deleted), 'deleted': deleted, 'failed': failed})
 
@@ -219,7 +226,7 @@ def _get_routes(api):
             for eid in ids:
                 try:
                     ElementTransformUtils.MoveElement(doc, eid, delta)
-                    moved.append(eid.IntegerValue)
+                    moved.append(_idv(eid))
                 except Exception:
                     pass
             t.Commit()
@@ -240,7 +247,7 @@ def _get_routes(api):
         with Transaction(doc, 'MCP: Copy Elements') as t:
             t.Start()
             copied = ElementTransformUtils.CopyElements(doc, id_list, delta)
-            new_ids = [eid.IntegerValue for eid in copied]
+            new_ids = [_idv(eid) for eid in copied]
             t.Commit()
         return Response(data={'new_element_ids': new_ids, 'count': len(new_ids)})
 
@@ -294,4 +301,4 @@ def _get_routes(api):
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
         dep_ids = elem.GetDependentElements(None)
-        return Response(data={'element_id': element_id, 'dependent_element_ids': [i.IntegerValue for i in dep_ids], 'count': len(list(dep_ids))})
+        return Response(data={'element_id': element_id, 'dependent_element_ids': [_idv(i) for i in dep_ids], 'count': len(list(dep_ids))})

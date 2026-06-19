@@ -89,7 +89,7 @@ def _find_level(name):
 
 def _elem_summary(elem):
     """Build a concise summary dict for a Revit element."""
-    d = {'element_id': elem.Id.IntegerValue, 'category': elem.Category.Name if elem.Category else None, 'name': elem.Name}
+    d = {'element_id': _idv(elem.Id), 'category': elem.Category.Name if elem.Category else None, 'name': elem.Name}
     type_elem = doc.GetElement(elem.GetTypeId()) if elem.GetTypeId() != ElementId.InvalidElementId else None
     if type_elem:
         d['family_name'] = getattr(type_elem, 'FamilyName', type_elem.Name)
@@ -132,14 +132,14 @@ def _traverse_circuit(system):
     elements = list(system.Elements)
     if not elements:
         return []
-    circuit_ids = {e.Id.IntegerValue for e in elements}
+    circuit_ids = {_idv(e.Id) for e in elements}
     if panel:
-        circuit_ids.discard(panel.Id.IntegerValue)
+        circuit_ids.discard(_idv(panel.Id))
     visited = []
     visited_ids = set()
     queue = [panel] if panel else []
     if panel:
-        visited_ids.add(panel.Id.IntegerValue)
+        visited_ids.add(_idv(panel.Id))
     while queue:
         current = queue.pop(0)
         if current is not panel:
@@ -149,12 +149,12 @@ def _traverse_circuit(system):
                 if conn.IsConnected:
                     for ref in conn.AllRefs:
                         neighbour = doc.GetElement(ref.Owner.Id)
-                        if neighbour is not None and neighbour.Id.IntegerValue in circuit_ids and (neighbour.Id.IntegerValue not in visited_ids):
-                            visited_ids.add(neighbour.Id.IntegerValue)
+                        if neighbour is not None and _idv(neighbour.Id) in circuit_ids and (_idv(neighbour.Id) not in visited_ids):
+                            visited_ids.add(_idv(neighbour.Id))
                             queue.append(neighbour)
             except Exception:
                 pass
-    unvisited = [e for e in elements if e.Id.IntegerValue not in visited_ids]
+    unvisited = [e for e in elements if _idv(e.Id) not in visited_ids]
     reference_pt = None
     if panel:
         reference_pt = _get_element_location_xyz(panel)
@@ -181,6 +181,13 @@ def _qp(request):
         pass
     return d
 
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
+
 def _get_routes(api):
 
     @api.route('/conduit/circuits', methods=['GET'])
@@ -201,7 +208,7 @@ def _get_routes(api):
                 if panel_filter and panel_name and (panel_filter not in panel_name.lower()):
                     continue
                 elem_count = sum((1 for _ in sys.Elements))
-                results.append({'circuit_id': sys.Id.IntegerValue, 'circuit_name': sys.Name, 'circuit_number': sys.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.RBS_ELEC_CIRCUIT_NUMBER).AsString() if sys.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.RBS_ELEC_CIRCUIT_NUMBER) else None, 'circuit_type': ct, 'panel_name': panel_name, 'panel_id': panel.Id.IntegerValue if panel else None, 'load_name': sys.LoadName if hasattr(sys, 'LoadName') else None, 'element_count': elem_count, 'amperage': sys.ApparentCurrent if hasattr(sys, 'ApparentCurrent') else None, 'voltage': sys.Voltage if hasattr(sys, 'Voltage') else None})
+                results.append({'circuit_id': _idv(sys.Id), 'circuit_name': sys.Name, 'circuit_number': sys.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.RBS_ELEC_CIRCUIT_NUMBER).AsString() if sys.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.RBS_ELEC_CIRCUIT_NUMBER) else None, 'circuit_type': ct, 'panel_name': panel_name, 'panel_id': _idv(panel.Id) if panel else None, 'load_name': sys.LoadName if hasattr(sys, 'LoadName') else None, 'element_count': elem_count, 'amperage': sys.ApparentCurrent if hasattr(sys, 'ApparentCurrent') else None, 'voltage': sys.Voltage if hasattr(sys, 'Voltage') else None})
             except Exception as e:
                 pass
         return Response(data=results)
@@ -232,7 +239,7 @@ def _get_routes(api):
             else:
                 s['fix_instruction'] = "Open family '{}' in the Family Editor. Add a Connector: Manage → MEP Settings → Connectors → New Connector. Set Domain = Electrical, Connector Type = Conduit. Place it at the conduit entry/exit point of the fixture. Save and reload the family into the project.".format(s.get('family_name', elem.Name))
                 problems.append(s)
-        return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'panel_name': panel.Name if panel else None, 'panel_id': panel.Id.IntegerValue if panel else None, 'panel_has_conduit_connector': panel_has_conduit, 'element_count': len(ready) + len(problems), 'ready_elements': ready, 'problem_elements': problems, 'can_build': len(problems) == 0 and panel_has_conduit})
+        return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'panel_name': panel.Name if panel else None, 'panel_id': _idv(panel.Id) if panel else None, 'panel_has_conduit_connector': panel_has_conduit, 'element_count': len(ready) + len(problems), 'ready_elements': ready, 'problem_elements': problems, 'can_build': len(problems) == 0 and panel_has_conduit})
 
     @api.route('/conduit/types', methods=['GET'])
     def list_conduit_types(uiapp):
@@ -241,7 +248,7 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         results = []
         for ct in FilteredElementCollector(doc).OfClass(ConduitType):
-            results.append({'element_id': ct.Id.IntegerValue, 'name': ct.Name, 'family_name': ct.FamilyName if hasattr(ct, 'FamilyName') else ct.Name})
+            results.append({'element_id': _idv(ct.Id), 'name': ct.Name, 'family_name': ct.FamilyName if hasattr(ct, 'FamilyName') else ct.Name})
         return Response(data=results)
 
     @api.route('/conduit/types/<int:type_id>/sizes', methods=['GET'])
@@ -292,7 +299,7 @@ def _get_routes(api):
         panel_info = None
         if panel:
             p_conn = _get_unused_conduit_connector(panel)
-            panel_info = {'element_id': panel.Id.IntegerValue, 'name': panel.Name, 'connector_origin': _xyz_dict(p_conn.Origin) if p_conn else None, 'has_conduit_connector': p_conn is not None}
+            panel_info = {'element_id': _idv(panel.Id), 'name': panel.Name, 'connector_origin': _xyz_dict(p_conn.Origin) if p_conn else None, 'has_conduit_connector': p_conn is not None}
         return Response(data={'circuit_id': circuit_id, 'circuit_name': system.Name, 'panel': panel_info, 'sequence': sequence, 'segment_count': max(0, len(ordered) - 1) + (1 if panel else 0), 'total_run_length': total_length})
 
     @api.route('/conduit/circuits/<int:circuit_id>/build_plan', methods=['GET'])
@@ -386,13 +393,13 @@ def _get_routes(api):
                     conn_a = _get_unused_conduit_connector(elem_a)
                     conn_b = _get_unused_conduit_connector(elem_b)
                     if conn_a is None:
-                        skipped_connections.append({'from_element_id': elem_a.Id.IntegerValue, 'to_element_id': elem_b.Id.IntegerValue, 'reason': "Element '{}' (ID {}) has no available conduit connector.".format(elem_a.Name, elem_a.Id.IntegerValue)})
+                        skipped_connections.append({'from_element_id': _idv(elem_a.Id), 'to_element_id': _idv(elem_b.Id), 'reason': "Element '{}' (ID {}) has no available conduit connector.".format(elem_a.Name, _idv(elem_a.Id))})
                         prev_conduit_end_connector = None
                         continue
                     if conn_b is None:
                         type_elem = doc.GetElement(elem_b.GetTypeId())
                         fam = type_elem.FamilyName if type_elem and hasattr(type_elem, 'FamilyName') else elem_b.Name
-                        skipped_connections.append({'from_element_id': elem_a.Id.IntegerValue, 'to_element_id': elem_b.Id.IntegerValue, 'reason': "Element '{}' (ID {}) from family '{}' has no conduit connector. Open the family in the Family Editor, add a Connector (Manage → MEP Settings → Connectors → New Connector), set Domain = Electrical, Connector Type = Conduit, and reload the family.".format(elem_b.Name, elem_b.Id.IntegerValue, fam)})
+                        skipped_connections.append({'from_element_id': _idv(elem_a.Id), 'to_element_id': _idv(elem_b.Id), 'reason': "Element '{}' (ID {}) from family '{}' has no conduit connector. Open the family in the Family Editor, add a Connector (Manage → MEP Settings → Connectors → New Connector), set Domain = Electrical, Connector Type = Conduit, and reload the family.".format(elem_b.Name, _idv(elem_b.Id), fam)})
                         prev_conduit_end_connector = None
                         continue
                     start_pt = conn_a.Origin
@@ -429,9 +436,9 @@ def _get_routes(api):
                             seg_len = _dist(seg_start, seg_end)
                             total_length += seg_len
                             created_in_step.append(conduit)
-                            segments_created.append({'segment_index': len(segments_created) + 1, 'conduit_id': conduit.Id.IntegerValue, 'from_element': elem_a.Name, 'to_element': elem_b.Name, 'from_element_id': elem_a.Id.IntegerValue, 'to_element_id': elem_b.Id.IntegerValue, 'length': seg_len, 'start': _xyz_dict(seg_start), 'end': _xyz_dict(seg_end), 'level': level.Name if level else None})
+                            segments_created.append({'segment_index': len(segments_created) + 1, 'conduit_id': _idv(conduit.Id), 'from_element': elem_a.Name, 'to_element': elem_b.Name, 'from_element_id': _idv(elem_a.Id), 'to_element_id': _idv(elem_b.Id), 'length': seg_len, 'start': _xyz_dict(seg_start), 'end': _xyz_dict(seg_end), 'level': level.Name if level else None})
                         except Exception as ex:
-                            skipped_connections.append({'from_element_id': elem_a.Id.IntegerValue, 'to_element_id': elem_b.Id.IntegerValue, 'reason': 'Conduit.Create failed: {}'.format(ex)})
+                            skipped_connections.append({'from_element_id': _idv(elem_a.Id), 'to_element_id': _idv(elem_b.Id), 'reason': 'Conduit.Create failed: {}'.format(ex)})
                             created_in_step = []
                             break
                     if not created_in_step:
@@ -465,7 +472,7 @@ def _get_routes(api):
                         if cur_start_connectors:
                             try:
                                 fitting = doc.Create.NewElbowFitting(prev_conduit_end_connector, cur_start_connectors[0])
-                                fittings_created.append(fitting.Id.IntegerValue)
+                                fittings_created.append(_idv(fitting.Id))
                             except Exception as fit_ex:
                                 warnings.append('Elbow fitting at segment {} failed: {}. You may need to manually add fittings at direction changes.'.format(i + 1, fit_ex))
                     if last_conduit:
@@ -514,7 +521,7 @@ def _get_routes(api):
                     diam = dp.AsDouble()
             except Exception:
                 pass
-            results.append({'element_id': c.Id.IntegerValue, 'conduit_type': ctype_name, 'diameter': diam, 'length': c.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble() if c.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.CURVE_ELEM_LENGTH) else 0.0, 'level': level, 'start': start, 'end': end})
+            results.append({'element_id': _idv(c.Id), 'conduit_type': ctype_name, 'diameter': diam, 'length': c.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble() if c.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.CURVE_ELEM_LENGTH) else 0.0, 'level': level, 'start': start, 'end': end})
         return Response(data=results)
 
     @api.route('/conduit/element/<int:element_id>/connectors', methods=['GET'])
@@ -533,7 +540,7 @@ def _get_routes(api):
             if conn.IsConnected:
                 try:
                     for ref in conn.AllRefs:
-                        connected_to = ref.Owner.Id.IntegerValue
+                        connected_to = _idv(ref.Owner.Id)
                         break
                 except Exception:
                     pass
@@ -557,9 +564,9 @@ def _get_routes(api):
         system = doc.GetElement(ElementId(circuit_id))
         if not isinstance(system, ElectricalSystem):
             return Response(status_code=404, data={'error': 'Circuit not found'})
-        circuit_elem_ids = {e.Id.IntegerValue for e in system.Elements}
+        circuit_elem_ids = {_idv(e.Id) for e in system.Elements}
         if system.BaseEquipment:
-            circuit_elem_ids.add(system.BaseEquipment.Id.IntegerValue)
+            circuit_elem_ids.add(_idv(system.BaseEquipment.Id))
         to_delete = []
         for conduit in FilteredElementCollector(doc).OfClass(Conduit):
             cm = conduit.ConnectorManager
@@ -569,7 +576,7 @@ def _get_routes(api):
                 if conn.IsConnected:
                     try:
                         for ref in conn.AllRefs:
-                            if ref.Owner.Id.IntegerValue in circuit_elem_ids:
+                            if _idv(ref.Owner.Id) in circuit_elem_ids:
                                 to_delete.append(conduit.Id)
                                 break
                     except Exception:

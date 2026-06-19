@@ -11,7 +11,7 @@ _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
 def _room_to_dict(room):
-    return {'element_id': room.Id.IntegerValue, 'number': room.Number, 'name': room.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ROOM_NAME).AsString() if room.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ROOM_NAME) else room.Name, 'level': room.Level.Name if room.Level else None, 'area': room.Area, 'perimeter': room.Perimeter}
+    return {'element_id': _idv(room.Id), 'number': room.Number, 'name': room.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ROOM_NAME).AsString() if room.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ROOM_NAME) else room.Name, 'level': room.Level.Name if room.Level else None, 'area': room.Area, 'perimeter': room.Perimeter}
 
 def _qp(request):
     """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
@@ -29,6 +29,13 @@ def _qp(request):
     except Exception:
         pass
     return d
+
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
 
 def _get_routes(api):
 
@@ -82,7 +89,7 @@ def _get_routes(api):
             if body.get('room_name'):
                 room.Name = body['room_name']
             t.Commit()
-        return Response(data={'element_id': room.Id.IntegerValue, 'number': room.Number, 'name': room.Name})
+        return Response(data={'element_id': _idv(room.Id), 'number': room.Number, 'name': room.Name})
 
     @api.route('/rooms/at_point', methods=['GET'])
     def get_room_at_point(uiapp, request):
@@ -113,7 +120,7 @@ def _get_routes(api):
             for space in FilteredElementCollector(doc).WherePasses(SpaceFilter()):
                 if level_name and space.Level and (space.Level.Name != level_name):
                     continue
-                results.append({'element_id': space.Id.IntegerValue, 'number': space.Number, 'name': space.Name, 'level': space.Level.Name if space.Level else None, 'area': space.Area})
+                results.append({'element_id': _idv(space.Id), 'number': space.Number, 'name': space.Name, 'level': space.Level.Name if space.Level else None, 'area': space.Area})
         except Exception:
             pass
         return Response(data=results)

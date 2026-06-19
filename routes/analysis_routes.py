@@ -25,6 +25,13 @@ def _qp(request):
         pass
     return d
 
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
+
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>/bounding_box', methods=['GET'])
@@ -136,7 +143,7 @@ def _get_routes(api):
         for elem in collector:
             if category_filter and (not (elem.Category and elem.Category.Name == category_filter)):
                 continue
-            results.append({'element_id': elem.Id.IntegerValue, 'category': elem.Category.Name if elem.Category else None})
+            results.append({'element_id': _idv(elem.Id), 'category': elem.Category.Name if elem.Category else None})
         return Response(data=results)
 
     @api.route('/analysis/clash_detection', methods=['POST'])
@@ -165,7 +172,7 @@ def _get_routes(api):
                 overlap_y = min(bb_a.Max.Y, bb_b.Max.Y) - max(bb_a.Min.Y, bb_b.Min.Y)
                 overlap_z = min(bb_a.Max.Z, bb_b.Max.Z) - max(bb_a.Min.Z, bb_b.Min.Z)
                 if overlap_x > tolerance and overlap_y > tolerance and (overlap_z > tolerance):
-                    clashes.append({'element_a_id': a.Id.IntegerValue, 'element_b_id': b.Id.IntegerValue, 'overlap_mm': min(overlap_x, overlap_y, overlap_z) * 304.8})
+                    clashes.append({'element_a_id': _idv(a.Id), 'element_b_id': _idv(b.Id), 'overlap_mm': min(overlap_x, overlap_y, overlap_z) * 304.8})
         return Response(data={'clash_count': len(clashes), 'clashes': clashes})
 
     @api.route('/analysis/model_summary', methods=['GET'])

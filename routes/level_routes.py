@@ -24,6 +24,13 @@ def _qp(request):
         pass
     return d
 
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
+
 def _get_routes(api):
 
     @api.route('/levels', methods=['GET'])
@@ -32,7 +39,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         levels = sorted(FilteredElementCollector(doc).OfClass(Level), key=lambda l: l.Elevation)
-        return Response(data=[{'element_id': l.Id.IntegerValue, 'name': l.Name, 'elevation': l.Elevation} for l in levels])
+        return Response(data=[{'element_id': _idv(l.Id), 'name': l.Name, 'elevation': l.Elevation} for l in levels])
 
     @api.route('/levels/by_name', methods=['GET'])
     def get_level(uiapp, request):
@@ -43,7 +50,7 @@ def _get_routes(api):
         lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == name), None)
         if not lvl:
             return Response(status_code=404, data={'error': "Level '{}' not found".format(name)})
-        return Response(data={'element_id': lvl.Id.IntegerValue, 'name': lvl.Name, 'elevation': lvl.Elevation})
+        return Response(data={'element_id': _idv(lvl.Id), 'name': lvl.Name, 'elevation': lvl.Elevation})
 
     @api.route('/levels/create', methods=['POST'])
     def create_level(uiapp, request):
@@ -57,7 +64,7 @@ def _get_routes(api):
             if body.get('level_name'):
                 lvl.Name = body['level_name']
             t.Commit()
-        return Response(data={'element_id': lvl.Id.IntegerValue, 'name': lvl.Name, 'elevation': lvl.Elevation})
+        return Response(data={'element_id': _idv(lvl.Id), 'name': lvl.Name, 'elevation': lvl.Elevation})
 
     @api.route('/levels/set_elevation', methods=['POST'])
     def set_elevation(uiapp, request):
@@ -100,7 +107,7 @@ def _get_routes(api):
             curve = g.Curve
             s = curve.GetEndPoint(0)
             e = curve.GetEndPoint(1)
-            results.append({'element_id': g.Id.IntegerValue, 'name': g.Name, 'start': {'x': s.X, 'y': s.Y, 'z': s.Z}, 'end': {'x': e.X, 'y': e.Y, 'z': e.Z}})
+            results.append({'element_id': _idv(g.Id), 'name': g.Name, 'start': {'x': s.X, 'y': s.Y, 'z': s.Z}, 'end': {'x': e.X, 'y': e.Y, 'z': e.Z}})
         return Response(data=results)
 
     @api.route('/grids/create', methods=['POST'])
@@ -118,4 +125,4 @@ def _get_routes(api):
             if body.get('grid_name'):
                 grid.Name = body['grid_name']
             t.Commit()
-        return Response(data={'element_id': grid.Id.IntegerValue, 'name': grid.Name})
+        return Response(data={'element_id': _idv(grid.Id), 'name': grid.Name})

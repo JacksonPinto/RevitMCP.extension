@@ -27,6 +27,13 @@ def _qp(request):
         pass
     return d
 
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
+
 def _get_routes(api):
 
     @api.route('/mep/systems', methods=['GET'])
@@ -40,14 +47,14 @@ def _get_routes(api):
             for sys in FilteredElementCollector(doc).OfClass(MechanicalSystem):
                 if system_type and system_type != 'DuctSystem':
                     continue
-                results.append({'type': 'DuctSystem', 'name': sys.Name, 'element_id': sys.Id.IntegerValue})
+                results.append({'type': 'DuctSystem', 'name': sys.Name, 'element_id': _idv(sys.Id)})
         except Exception:
             pass
         try:
             for sys in FilteredElementCollector(doc).OfClass(PipingSystem):
                 if system_type and system_type != 'PipingSystem':
                     continue
-                results.append({'type': 'PipingSystem', 'name': sys.Name, 'element_id': sys.Id.IntegerValue})
+                results.append({'type': 'PipingSystem', 'name': sys.Name, 'element_id': _idv(sys.Id)})
         except Exception:
             pass
         return Response(data=results)
@@ -61,7 +68,7 @@ def _get_routes(api):
         results = []
         try:
             for duct in FilteredElementCollector(doc).OfClass(Duct):
-                d = {'element_id': duct.Id.IntegerValue, 'length': duct.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble() if duct.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH) else 0}
+                d = {'element_id': _idv(duct.Id), 'length': duct.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH).AsDouble() if duct.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH) else 0}
                 results.append(d)
         except Exception:
             pass
@@ -75,7 +82,7 @@ def _get_routes(api):
         results = []
         try:
             for pipe in FilteredElementCollector(doc).OfClass(Pipe):
-                results.append({'element_id': pipe.Id.IntegerValue, 'diameter': pipe.Diameter if hasattr(pipe, 'Diameter') else 0})
+                results.append({'element_id': _idv(pipe.Id), 'diameter': pipe.Diameter if hasattr(pipe, 'Diameter') else 0})
         except Exception:
             pass
         return Response(data=results)
@@ -88,7 +95,7 @@ def _get_routes(api):
         results = []
         try:
             for circuit in FilteredElementCollector(doc).OfClass(ElectricalSystem):
-                results.append({'element_id': circuit.Id.IntegerValue, 'name': circuit.Name, 'load_name': circuit.LoadName if hasattr(circuit, 'LoadName') else None})
+                results.append({'element_id': _idv(circuit.Id), 'name': circuit.Name, 'load_name': circuit.LoadName if hasattr(circuit, 'LoadName') else None})
         except Exception:
             pass
         return Response(data=results)
@@ -105,7 +112,7 @@ def _get_routes(api):
                 lvl_p = elem.LookupParameter('Level') or elem.LookupParameter('Reference Level')
                 if lvl_p and level_name not in (lvl_p.AsValueString() or ''):
                     continue
-            results.append({'element_id': elem.Id.IntegerValue, 'name': elem.Name, 'category': 'Mechanical Equipment'})
+            results.append({'element_id': _idv(elem.Id), 'name': elem.Name, 'category': 'Mechanical Equipment'})
         return Response(data=results)
 
     @api.route('/mep/light_fixtures', methods=['GET'])
@@ -115,7 +122,7 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         results = []
         for elem in FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_LightingFixtures).WhereElementIsNotElementType():
-            results.append({'element_id': elem.Id.IntegerValue, 'name': elem.Name})
+            results.append({'element_id': _idv(elem.Id), 'name': elem.Name})
         return Response(data=results)
 
     @api.route('/mep/plumbing_fixtures', methods=['GET'])
@@ -125,5 +132,5 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         results = []
         for elem in FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_PlumbingFixtures).WhereElementIsNotElementType():
-            results.append({'element_id': elem.Id.IntegerValue, 'name': elem.Name})
+            results.append({'element_id': _idv(elem.Id), 'name': elem.Name})
         return Response(data=results)

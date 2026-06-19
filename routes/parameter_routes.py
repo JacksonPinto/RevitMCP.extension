@@ -39,6 +39,13 @@ def _qp(request):
         pass
     return d
 
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
+
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>/parameters', methods=['GET'])
@@ -71,7 +78,7 @@ def _get_routes(api):
                 elif st == 'Integer':
                     val = param.AsInteger()
                 elif st == 'ElementId':
-                    val = param.AsElementId().IntegerValue
+                    val = _idv(param.AsElementId())
                 else:
                     val = None
                 results.append({'name': param.Definition.Name, 'value': val, 'display_value': param.AsValueString(), 'storage_type': st, 'group': group, 'read_only': param.IsReadOnly})
@@ -91,7 +98,7 @@ def _get_routes(api):
         if param is None:
             return Response(status_code=404, data={'error': "Parameter '{}' not found".format(param_name)})
         st = param.StorageType.ToString()
-        val = param.AsString() if st == 'String' else param.AsDouble() if st == 'Double' else param.AsInteger() if st == 'Integer' else param.AsElementId().IntegerValue
+        val = param.AsString() if st == 'String' else param.AsDouble() if st == 'Double' else param.AsInteger() if st == 'Integer' else _idv(param.AsElementId())
         return Response(data={'name': param_name, 'value': val, 'display_value': param.AsValueString(), 'storage_type': st, 'read_only': param.IsReadOnly})
 
     @api.route('/elements/<int:element_id>/parameters/set', methods=['POST'])
@@ -153,7 +160,7 @@ def _get_routes(api):
         for param in elem.Parameters:
             try:
                 st = param.StorageType.ToString()
-                val = param.AsString() if st == 'String' else param.AsDouble() if st == 'Double' else param.AsInteger() if st == 'Integer' else param.AsElementId().IntegerValue
+                val = param.AsString() if st == 'String' else param.AsDouble() if st == 'Double' else param.AsInteger() if st == 'Integer' else _idv(param.AsElementId())
                 results.append({'name': param.Definition.Name, 'value': val, 'display_value': param.AsValueString(), 'storage_type': st, 'read_only': param.IsReadOnly})
             except Exception:
                 pass
@@ -224,6 +231,6 @@ def _get_routes(api):
                         _set_param(param, value)
                         updated += 1
                     except Exception as ex:
-                        failed.append({'element_id': elem.Id.IntegerValue, 'reason': str(ex)})
+                        failed.append({'element_id': _idv(elem.Id), 'reason': str(ex)})
             t.Commit()
         return Response(data={'updated_count': updated, 'failed': failed})

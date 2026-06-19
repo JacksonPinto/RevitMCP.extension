@@ -15,6 +15,13 @@ app = __revit__.Application
 _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
+
 def _get_routes(api):
     """Register all project-related routes on the provided API object."""
 
@@ -82,7 +89,7 @@ def _get_routes(api):
         warnings = doc.GetWarnings()
         result = []
         for w in warnings:
-            result.append({'description': w.GetDescriptionText(), 'element_ids': [eid.IntegerValue for eid in w.GetFailingElements()]})
+            result.append({'description': w.GetDescriptionText(), 'element_ids': [_idv(eid) for eid in w.GetFailingElements()]})
         return Response(data=result)
 
     @api.route('/project/links', methods=['GET'])
@@ -95,5 +102,5 @@ def _get_routes(api):
         result = []
         for link in collector:
             link_doc = link.GetLinkDocument()
-            result.append({'element_id': link.Id.IntegerValue, 'name': link.Name, 'status': 'loaded' if link_doc is not None else 'unloaded', 'path': link_doc.PathName if link_doc else None})
+            result.append({'element_id': _idv(link.Id), 'name': link.Name, 'status': 'loaded' if link_doc is not None else 'unloaded', 'path': link_doc.PathName if link_doc else None})
         return Response(data=result)

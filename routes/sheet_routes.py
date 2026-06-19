@@ -11,8 +11,8 @@ _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
 def _sheet_to_dict(sheet):
-    views_on_sheet = [{'viewport_id': vp.Id.IntegerValue, 'view_name': doc.GetElement(vp.ViewId).Name} for vp in FilteredElementCollector(doc, sheet.Id).OfClass(Viewport)]
-    return {'element_id': sheet.Id.IntegerValue, 'sheet_number': sheet.SheetNumber, 'sheet_name': sheet.Name, 'views': views_on_sheet}
+    views_on_sheet = [{'viewport_id': _idv(vp.Id), 'view_name': doc.GetElement(vp.ViewId).Name} for vp in FilteredElementCollector(doc, sheet.Id).OfClass(Viewport)]
+    return {'element_id': _idv(sheet.Id), 'sheet_number': sheet.SheetNumber, 'sheet_name': sheet.Name, 'views': views_on_sheet}
 
 def _find_sheet(number):
     for s in FilteredElementCollector(doc).OfClass(ViewSheet):
@@ -36,6 +36,13 @@ def _qp(request):
     except Exception:
         pass
     return d
+
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
 
 def _get_routes(api):
 
@@ -86,7 +93,7 @@ def _get_routes(api):
             sheet.SheetNumber = body['sheet_number']
             sheet.Name = body['sheet_name']
             t.Commit()
-        return Response(data={'element_id': sheet.Id.IntegerValue, 'sheet_number': sheet.SheetNumber, 'sheet_name': sheet.Name})
+        return Response(data={'element_id': _idv(sheet.Id), 'sheet_number': sheet.SheetNumber, 'sheet_name': sheet.Name})
 
     @api.route('/sheets/create_bulk', methods=['POST'])
     def create_sheets_bulk(uiapp, request):
@@ -111,7 +118,7 @@ def _get_routes(api):
                     sheet = ViewSheet.Create(doc, tb_id)
                     sheet.SheetNumber = sd['sheet_number']
                     sheet.Name = sd['sheet_name']
-                    created.append({'sheet_number': sd['sheet_number'], 'element_id': sheet.Id.IntegerValue})
+                    created.append({'sheet_number': sd['sheet_number'], 'element_id': _idv(sheet.Id)})
                 except Exception as ex:
                     failed.append({'sheet_number': sd.get('sheet_number'), 'reason': str(ex)})
             t.Commit()
@@ -142,7 +149,7 @@ def _get_routes(api):
             t.Start()
             vp = Viewport.Create(doc, sheet.Id, view.Id, center)
             t.Commit()
-        return Response(data={'viewport_id': vp.Id.IntegerValue, 'view_name': view_name, 'sheet_number': sheet_number})
+        return Response(data={'viewport_id': _idv(vp.Id), 'view_name': view_name, 'sheet_number': sheet_number})
 
     @api.route('/sheets/views', methods=['GET'])
     def list_views_on_sheet(uiapp, request):
@@ -156,7 +163,7 @@ def _get_routes(api):
         results = []
         for vp in FilteredElementCollector(doc, sheet.Id).OfClass(Viewport):
             v = doc.GetElement(vp.ViewId)
-            results.append({'viewport_id': vp.Id.IntegerValue, 'view_name': v.Name if v else None, 'view_type': v.ViewType.ToString() if v else None})
+            results.append({'viewport_id': _idv(vp.Id), 'view_name': v.Name if v else None, 'view_type': v.ViewType.ToString() if v else None})
         return Response(data=results)
 
     @api.route('/sheets/remove_view', methods=['DELETE'])
@@ -219,5 +226,5 @@ def _get_routes(api):
         results = []
         for sym in FilteredElementCollector(doc).OfClass(FamilySymbol):
             if sym.Category and 'Title Block' in sym.Category.Name:
-                results.append({'family_name': sym.FamilyName, 'type_name': sym.Name, 'element_id': sym.Id.IntegerValue})
+                results.append({'family_name': sym.FamilyName, 'type_name': sym.Name, 'element_id': _idv(sym.Id)})
         return Response(data=results)

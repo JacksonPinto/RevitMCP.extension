@@ -11,7 +11,7 @@ _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
 def _view_to_dict(v):
-    return {'element_id': v.Id.IntegerValue, 'name': v.Name, 'view_type': v.ViewType.ToString(), 'scale': v.Scale, 'detail_level': v.DetailLevel.ToString(), 'discipline': v.Discipline.ToString() if hasattr(v, 'Discipline') else None, 'is_template': v.IsTemplate, 'associated_level': v.GenLevel.Name if v.GenLevel else None}
+    return {'element_id': _idv(v.Id), 'name': v.Name, 'view_type': v.ViewType.ToString(), 'scale': v.Scale, 'detail_level': v.DetailLevel.ToString(), 'discipline': v.Discipline.ToString() if hasattr(v, 'Discipline') else None, 'is_template': v.IsTemplate, 'associated_level': v.GenLevel.Name if v.GenLevel else None}
 
 def _find_level(level_name):
     for lvl in FilteredElementCollector(doc).OfClass(Level):
@@ -35,6 +35,13 @@ def _qp(request):
     except Exception:
         pass
     return d
+
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
 
 def _get_routes(api):
 
@@ -97,7 +104,7 @@ def _get_routes(api):
             except Exception:
                 pass
             t.Commit()
-        return Response(data={'element_id': view.Id.IntegerValue, 'name': view.Name})
+        return Response(data={'element_id': _idv(view.Id), 'name': view.Name})
 
     @api.route('/views/duplicate', methods=['POST'])
     def duplicate_view(uiapp, request):
@@ -121,7 +128,7 @@ def _get_routes(api):
             except Exception:
                 pass
             t.Commit()
-        return Response(data={'element_id': new_id.IntegerValue, 'name': new_name})
+        return Response(data={'element_id': _idv(new_id), 'name': new_name})
 
     @api.route('/views/apply_template', methods=['POST'])
     def apply_template(uiapp, request):

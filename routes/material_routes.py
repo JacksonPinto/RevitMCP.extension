@@ -8,7 +8,7 @@ _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
 def _mat_to_dict(m):
-    return {'element_id': m.Id.IntegerValue, 'name': m.Name, 'material_class': m.MaterialClass, 'color_r': m.Color.Red if m.Color else 0, 'color_g': m.Color.Green if m.Color else 0, 'color_b': m.Color.Blue if m.Color else 0, 'transparency': m.Transparency, 'shininess': m.Shininess, 'smoothness': m.Smoothness}
+    return {'element_id': _idv(m.Id), 'name': m.Name, 'material_class': m.MaterialClass, 'color_r': m.Color.Red if m.Color else 0, 'color_g': m.Color.Green if m.Color else 0, 'color_b': m.Color.Blue if m.Color else 0, 'transparency': m.Transparency, 'shininess': m.Shininess, 'smoothness': m.Smoothness}
 
 def _qp(request):
     """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
@@ -26,6 +26,13 @@ def _qp(request):
     except Exception:
         pass
     return d
+
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
 
 def _get_routes(api):
 
@@ -67,7 +74,7 @@ def _get_routes(api):
             mat.Color = Color(int(body.get('color_r', 128)), int(body.get('color_g', 128)), int(body.get('color_b', 128)))
             mat.Transparency = int(body.get('transparency', 0))
             t.Commit()
-        return Response(data={'element_id': mat_id.IntegerValue, 'name': body['material_name']})
+        return Response(data={'element_id': _idv(mat_id), 'name': body['material_name']})
 
     @api.route('/materials/duplicate', methods=['POST'])
     def duplicate_material(uiapp, request):
@@ -82,4 +89,4 @@ def _get_routes(api):
             t.Start()
             new_id = src.Duplicate(body['new_name'])
             t.Commit()
-        return Response(data={'element_id': new_id.IntegerValue, 'name': body['new_name']})
+        return Response(data={'element_id': _idv(new_id), 'name': body['new_name']})

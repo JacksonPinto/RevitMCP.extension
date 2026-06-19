@@ -29,6 +29,13 @@ def _qp(request):
         pass
     return d
 
+def _idv(eid):
+    """ElementId integer value. Revit 2024+ uses .Value (Int64); older uses .IntegerValue."""
+    try:
+        return eid.Value
+    except AttributeError:
+        return eid.IntegerValue
+
 def _get_routes(api):
 
     @api.route('/families/categories', methods=['GET'])
@@ -61,7 +68,7 @@ def _get_routes(api):
             if search and search not in fam.Name.lower():
                 continue
             type_count = fam.GetFamilySymbolIds().Count
-            results.append({'family_name': fam.Name, 'category': fam.FamilyCategory.Name if fam.FamilyCategory else None, 'is_system_family': fam.IsSystemFamily, 'is_in_place': fam.IsInPlace, 'type_count': type_count, 'element_id': fam.Id.IntegerValue})
+            results.append({'family_name': fam.Name, 'category': fam.FamilyCategory.Name if fam.FamilyCategory else None, 'is_system_family': fam.IsSystemFamily, 'is_in_place': fam.IsInPlace, 'type_count': type_count, 'element_id': _idv(fam.Id)})
         return Response(data=results)
 
     @api.route('/families/types', methods=['GET'])
@@ -78,7 +85,7 @@ def _get_routes(api):
         for type_id in target.GetFamilySymbolIds():
             sym = doc.GetElement(type_id)
             if sym:
-                results.append({'type_name': sym.Name, 'element_id': sym.Id.IntegerValue, 'is_active': sym.IsActive})
+                results.append({'type_name': sym.Name, 'element_id': _idv(sym.Id), 'is_active': sym.IsActive})
         return Response(data=results)
 
     @api.route('/families/place', methods=['POST'])
@@ -126,7 +133,7 @@ def _get_routes(api):
                 axis = Line.CreateBound(location, XYZ(location.X, location.Y, location.Z + 1))
                 ElementTransformUtils.RotateElement(doc, instance.Id, axis, math.radians(rotation))
             t.Commit()
-        return Response(data={'element_id': instance.Id.IntegerValue, 'family': family_name, 'type': type_name})
+        return Response(data={'element_id': _idv(instance.Id), 'family': family_name, 'type': type_name})
 
     @api.route('/families/load', methods=['POST'])
     def load_family(uiapp, request):
