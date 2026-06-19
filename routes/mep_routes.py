@@ -10,6 +10,23 @@ from pyrevit.routes import API, Response
 _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/mep/systems', methods=['GET'])
@@ -17,7 +34,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        system_type = request.params.get('system_type')
+        system_type = _qp(request).get('system_type')
         results = []
         try:
             for sys in FilteredElementCollector(doc).OfClass(MechanicalSystem):
@@ -40,7 +57,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        level_name = request.params.get('level_name')
+        level_name = _qp(request).get('level_name')
         results = []
         try:
             for duct in FilteredElementCollector(doc).OfClass(Duct):
@@ -81,7 +98,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        level_name = request.params.get('level_name')
+        level_name = _qp(request).get('level_name')
         results = []
         for elem in FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_MechanicalEquipment).WhereElementIsNotElementType():
             if level_name:

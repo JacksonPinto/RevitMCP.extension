@@ -22,6 +22,23 @@ def _set_param(param, value):
     elif st == 'ElementId':
         param.Set(ElementId(int(value)))
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>/parameters', methods=['GET'])
@@ -32,8 +49,8 @@ def _get_routes(api):
         elem = doc.GetElement(ElementId(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
-        include_ro = request.params.get('include_read_only', 'false').lower() == 'true'
-        group_filter = request.params.get('group_filter')
+        include_ro = _qp(request).get('include_read_only', 'false').lower() == 'true'
+        group_filter = _qp(request).get('group_filter')
         results = []
         for param in elem.Parameters:
             if param.IsReadOnly and (not include_ro):

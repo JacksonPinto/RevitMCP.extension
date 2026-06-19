@@ -20,6 +20,23 @@ def _find_sheet(number):
             return s
     return None
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/sheets', methods=['GET'])
@@ -27,7 +44,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        search = request.params.get('search', '').lower()
+        search = _qp(request).get('search', '').lower()
         results = []
         for s in FilteredElementCollector(doc).OfClass(ViewSheet):
             if search and search not in s.SheetNumber.lower() and (search not in s.Name.lower()):
@@ -40,7 +57,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        number = request.params.get('sheet_number')
+        number = _qp(request).get('sheet_number')
         sheet = _find_sheet(number)
         if not sheet:
             return Response(status_code=404, data={'error': "Sheet '{}' not found".format(number)})
@@ -132,7 +149,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        number = request.params.get('sheet_number')
+        number = _qp(request).get('sheet_number')
         sheet = _find_sheet(number)
         if not sheet:
             return Response(status_code=404, data={'error': 'Sheet not found'})

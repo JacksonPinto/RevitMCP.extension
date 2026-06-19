@@ -8,6 +8,23 @@ from pyrevit.routes import API, Response
 _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>/bounding_box', methods=['GET'])
@@ -50,7 +67,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        level_name = request.params.get('level_name')
+        level_name = _qp(request).get('level_name')
         level_areas = {}
         for room in FilteredElementCollector(doc).WherePasses(RoomFilter()):
             if room.Area <= 0:
@@ -73,8 +90,8 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        category_name = request.params.get('category', 'Floors')
-        level_name = request.params.get('level_name')
+        category_name = _qp(request).get('category', 'Floors')
+        level_name = _qp(request).get('level_name')
         total = 0
         breakdown = {}
         for elem in FilteredElementCollector(doc).WhereElementIsNotElementType():

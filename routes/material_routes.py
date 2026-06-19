@@ -10,6 +10,23 @@ doc = _uidoc.Document if _uidoc else None
 def _mat_to_dict(m):
     return {'element_id': m.Id.IntegerValue, 'name': m.Name, 'material_class': m.MaterialClass, 'color_r': m.Color.Red if m.Color else 0, 'color_g': m.Color.Green if m.Color else 0, 'color_b': m.Color.Blue if m.Color else 0, 'transparency': m.Transparency, 'shininess': m.Shininess, 'smoothness': m.Smoothness}
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/materials', methods=['GET'])
@@ -17,7 +34,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        search = request.params.get('search', '').lower()
+        search = _qp(request).get('search', '').lower()
         results = []
         for m in FilteredElementCollector(doc).OfClass(Material):
             if search and search not in m.Name.lower():
@@ -30,7 +47,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        name = request.params.get('material_name')
+        name = _qp(request).get('material_name')
         m = next((m for m in FilteredElementCollector(doc).OfClass(Material) if m.Name == name), None)
         if not m:
             return Response(status_code=404, data={'error': "Material '{}' not found".format(name)})

@@ -24,6 +24,23 @@ def _elem_to_dict(elem):
         d['level'] = level_param.AsValueString()
     return d
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>', methods=['GET'])
@@ -61,9 +78,9 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         uidoc = _ud
-        category_name = request.params.get('category')
-        level_name = request.params.get('level_name')
-        include_types = request.params.get('include_type_elements', 'false').lower() == 'true'
+        category_name = _qp(request).get('category')
+        level_name = _qp(request).get('level_name')
+        include_types = _qp(request).get('include_type_elements', 'false').lower() == 'true'
         collector = FilteredElementCollector(doc).WhereElementIsNotElementType()
         results = []
         for elem in collector:
@@ -158,7 +175,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         uidoc = _ud
-        category_name = request.params.get('category')
+        category_name = _qp(request).get('category')
         instance_count = sum((1 for e in FilteredElementCollector(doc).WhereElementIsNotElementType() if e.Category and e.Category.Name == category_name))
         type_count = sum((1 for e in FilteredElementCollector(doc).WhereElementIsElementType() if e.Category and e.Category.Name == category_name))
         return Response(data={'category': category_name, 'instance_count': instance_count, 'type_count': type_count})

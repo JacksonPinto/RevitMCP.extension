@@ -12,6 +12,23 @@ from pyrevit.routes import API, Response
 _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/families/categories', methods=['GET'])
@@ -32,8 +49,8 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        category_filter = request.params.get('category')
-        search = request.params.get('search', '').lower()
+        category_filter = _qp(request).get('category')
+        search = _qp(request).get('search', '').lower()
         families = FilteredElementCollector(doc).OfClass(Family).ToElements()
         results = []
         for fam in families:
@@ -52,7 +69,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        family_name = request.params.get('family_name')
+        family_name = _qp(request).get('family_name')
         families = FilteredElementCollector(doc).OfClass(Family).ToElements()
         target = next((f for f in families if f.Name == family_name), None)
         if target is None:

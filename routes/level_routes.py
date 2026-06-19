@@ -7,6 +7,23 @@ from pyrevit.routes import API, Response
 _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/levels', methods=['GET'])
@@ -22,7 +39,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        name = request.params.get('level_name')
+        name = _qp(request).get('level_name')
         lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == name), None)
         if not lvl:
             return Response(status_code=404, data={'error': "Level '{}' not found".format(name)})

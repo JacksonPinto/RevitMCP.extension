@@ -13,6 +13,23 @@ doc = _uidoc.Document if _uidoc else None
 def _room_to_dict(room):
     return {'element_id': room.Id.IntegerValue, 'number': room.Number, 'name': room.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ROOM_NAME).AsString() if room.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ROOM_NAME) else room.Name, 'level': room.Level.Name if room.Level else None, 'area': room.Area, 'perimeter': room.Perimeter}
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/rooms', methods=['GET'])
@@ -20,9 +37,9 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        level_name = request.params.get('level_name')
-        search = request.params.get('search', '').lower()
-        unplaced = request.params.get('unplaced_only', 'false').lower() == 'true'
+        level_name = _qp(request).get('level_name')
+        search = _qp(request).get('search', '').lower()
+        unplaced = _qp(request).get('unplaced_only', 'false').lower() == 'true'
         results = []
         for room in FilteredElementCollector(doc).WherePasses(RoomFilter()):
             if unplaced and room.Area > 0:
@@ -40,7 +57,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        number = request.params.get('room_number')
+        number = _qp(request).get('room_number')
         room = next((r for r in FilteredElementCollector(doc).WherePasses(RoomFilter()) if r.Number == number), None)
         if not room:
             return Response(status_code=404, data={'error': "Room '{}' not found".format(number)})
@@ -73,9 +90,9 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         from Autodesk.Revit.DB import XYZ
-        x = float(request.params.get('x', 0))
-        y = float(request.params.get('y', 0))
-        level_name = request.params.get('level_name')
+        x = float(_qp(request).get('x', 0))
+        y = float(_qp(request).get('y', 0))
+        level_name = _qp(request).get('level_name')
         level = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == level_name), None)
         if not level:
             return Response(status_code=404, data={'error': 'Level not found'})
@@ -90,7 +107,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        level_name = request.params.get('level_name')
+        level_name = _qp(request).get('level_name')
         results = []
         try:
             for space in FilteredElementCollector(doc).WherePasses(SpaceFilter()):

@@ -164,6 +164,23 @@ def _traverse_circuit(system):
         unvisited.sort(key=lambda e: _dist(_get_element_location_xyz(e) or XYZ(0, 0, 0), reference_pt))
     return visited + unvisited
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/conduit/circuits', methods=['GET'])
@@ -171,8 +188,8 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        panel_filter = request.params.get('panel_name', '').lower()
-        type_filter = request.params.get('circuit_type', '').lower()
+        panel_filter = _qp(request).get('panel_name', '').lower()
+        type_filter = _qp(request).get('circuit_type', '').lower()
         results = []
         for sys in FilteredElementCollector(doc).OfClass(ElectricalSystem):
             try:
@@ -469,8 +486,8 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        level_name = request.params.get('level_name')
-        type_name = request.params.get('conduit_type_name')
+        level_name = _qp(request).get('level_name')
+        type_name = _qp(request).get('conduit_type_name')
         results = []
         for conduit in FilteredElementCollector(doc).OfClass(Conduit):
             c = conduit

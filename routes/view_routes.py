@@ -19,6 +19,23 @@ def _find_level(level_name):
             return lvl
     return None
 
+def _qp(request):
+    """Normalize pyRevit request.params (list of key/value objects, or dict) to a dict."""
+    p = getattr(request, 'params', None)
+    if p is None:
+        return {}
+    if isinstance(p, dict):
+        return p
+    d = {}
+    try:
+        for x in p:
+            k = getattr(x, 'key', None)
+            if k is not None:
+                d[k] = getattr(x, 'value', None)
+    except Exception:
+        pass
+    return d
+
 def _get_routes(api):
 
     @api.route('/views', methods=['GET'])
@@ -26,9 +43,9 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        vtype = request.params.get('view_type')
-        search = request.params.get('search', '').lower()
-        excl_templates = request.params.get('exclude_template_views', 'true').lower() == 'true'
+        vtype = _qp(request).get('view_type')
+        search = _qp(request).get('search', '').lower()
+        excl_templates = _qp(request).get('exclude_template_views', 'true').lower() == 'true'
         results = []
         for v in FilteredElementCollector(doc).OfClass(View):
             if excl_templates and v.IsTemplate:
@@ -45,7 +62,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        name = request.params.get('view_name')
+        name = _qp(request).get('view_name')
         for v in FilteredElementCollector(doc).OfClass(View):
             if v.Name == name:
                 return Response(data=_view_to_dict(v))
