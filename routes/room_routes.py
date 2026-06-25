@@ -190,16 +190,13 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        level_name = _qp(request).get('level_name')
         results = []
-        try:
-            for space in FilteredElementCollector(doc).WherePasses(SpaceFilter()):
-                if level_name and space.Level and (space.Level.Name != level_name):
-                    continue
-                results.append({'element_id': _idv(space.Id), 'number': space.Number, 'name': space.Name, 'level': space.Level.Name if space.Level else None, 'area': space.Area})
-        except Exception:
-            pass
-        return Response(data=results)
+        for space in FilteredElementCollector(doc).WherePasses(SpaceFilter()):
+            try:
+                results.append(_spatial_dict(space))
+            except Exception:
+                pass
+        return Response(data={'count': len(results), 'spaces': results})
 
     @api.route('/spaces/active_view', methods=['GET'])
     def list_spaces_active_view(uiapp):
