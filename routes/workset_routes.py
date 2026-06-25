@@ -69,7 +69,6 @@ def _get_routes(api):
         elem = doc.GetElement(_mkid(element_id))
         if not elem:
             return Response(status_code=404, data={'error': 'Element not found'})
-        ws_param = elem.get_Parameter(clr.GetClrType(Autodesk.Revit.DB.BuiltInParameter).WorksetId)
         ws_id = elem.WorksetId
         ws = doc.GetWorksetTable().GetWorkset(ws_id)
         return Response(data={'element_id': element_id, 'workset_name': _safe_name(ws), 'workset_id': _idv(ws_id)})

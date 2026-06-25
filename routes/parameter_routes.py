@@ -218,10 +218,16 @@ def _get_routes(api):
             try:
                 st = param.StorageType.ToString()
                 val = param.AsString() if st == 'String' else param.AsDouble() if st == 'Double' else param.AsInteger() if st == 'Integer' else _idv(param.AsElementId())
-                results.append({'name': _safe_name(param.Definition), 'value': val, 'display_value': param.AsValueString(), 'storage_type': st, 'read_only': param.IsReadOnly})
+                if isinstance(val, str) and len(val) > 300:
+                    val = val[:300] + '...'
+                dv = param.AsValueString()
+                if isinstance(dv, str) and len(dv) > 300:
+                    dv = dv[:300] + '...'
+                results.append({'name': _safe_name(param.Definition), 'value': val, 'display_value': dv, 'storage_type': st, 'read_only': param.IsReadOnly})
             except Exception:
                 pass
-        return Response(data=results)
+        total = len(results)
+        return Response(data={'count': total, 'truncated': total > 400, 'parameters': results[:400]})
 
     @api.route('/types/<int:type_id>/parameters/set', methods=['POST'])
     def set_type_parameter(uiapp, type_id, request):

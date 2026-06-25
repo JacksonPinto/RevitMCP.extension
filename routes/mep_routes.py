@@ -108,7 +108,8 @@ def _get_routes(api):
                 results.append({'type': 'PipingSystem', 'name': _safe_name(sys), 'element_id': _idv(sys.Id)})
         except Exception:
             pass
-        return Response(data=results)
+        total = len(results)
+        return Response(data={'count': total, 'truncated': total > 400, 'systems': results[:400]})
 
     @api.route('/mep/ducts', methods=['GET'])
     def list_ducts(uiapp, request):

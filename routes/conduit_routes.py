@@ -305,7 +305,15 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         results = []
         for ct in FilteredElementCollector(doc).OfClass(ConduitType):
-            results.append({'element_id': _idv(ct.Id), 'name': _safe_name(ct), 'family_name': ct.FamilyName if hasattr(ct, 'FamilyName') else _safe_name(ct)})
+            nm = _safe_name(ct)
+            if not nm:
+                try:
+                    p = ct.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ALL_MODEL_TYPE_NAME) or ct.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.SYMBOL_NAME_PARAM)
+                    if p:
+                        nm = p.AsString()
+                except Exception:
+                    pass
+            results.append({'element_id': _idv(ct.Id), 'name': nm, 'family_name': getattr(ct, 'FamilyName', None)})
         return Response(data=results)
 
     @api.route('/conduit/types/<int:type_id>/sizes', methods=['GET'])

@@ -122,7 +122,8 @@ def _get_routes(api):
         result = []
         for w in warnings:
             result.append({'description': w.GetDescriptionText(), 'element_ids': [_idv(eid) for eid in w.GetFailingElements()]})
-        return Response(data=result)
+        total = len(result)
+        return Response(data={'count': total, 'truncated': total > 200, 'warnings': result[:200]})
 
     @api.route('/project/links', methods=['GET'])
     def get_links(uiapp):
