@@ -81,6 +81,12 @@ def _idv(eid):
     except AttributeError:
         return eid.IntegerValue
 
+def _mkid(i):
+    """Build an ElementId from an int (Revit 2026: force Int64 overload to avoid
+    ambiguity with ElementId(BuiltInParameter)/(BuiltInCategory))."""
+    import System
+    return ElementId(System.Int64(i))
+
 def _get_routes(api):
 
     @api.route('/families/categories', methods=['GET'])
@@ -164,7 +170,7 @@ def _get_routes(api):
                 symbol.Activate()
                 doc.Regenerate()
             if host_id:
-                host = doc.GetElement(ElementId(host_id))
+                host = doc.GetElement(_mkid(host_id))
                 instance = doc.Create.NewFamilyInstance(location, symbol, host, None)
             elif level:
                 from Autodesk.Revit.DB.Structure import StructuralType

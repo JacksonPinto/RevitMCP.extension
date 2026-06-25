@@ -15,6 +15,12 @@ def _idv(eid):
     except AttributeError:
         return eid.IntegerValue
 
+def _mkid(i):
+    """Build an ElementId from an int (Revit 2026: force Int64 overload to avoid
+    ambiguity with ElementId(BuiltInParameter)/(BuiltInCategory))."""
+    import System
+    return ElementId(System.Int64(i))
+
 def _get_routes(api):
 
     @api.route('/worksets/status', methods=['GET'])
@@ -54,7 +60,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        elem = doc.GetElement(ElementId(element_id))
+        elem = doc.GetElement(_mkid(element_id))
         if not elem:
             return Response(status_code=404, data={'error': 'Element not found'})
         ws_param = elem.get_Parameter(clr.GetClrType(Autodesk.Revit.DB.BuiltInParameter).WorksetId)
@@ -78,7 +84,7 @@ def _get_routes(api):
         with Transaction(doc, 'MCP: Set Element Workset') as t:
             t.Start()
             for eid in ids:
-                elem = doc.GetElement(ElementId(eid))
+                elem = doc.GetElement(_mkid(eid))
                 if elem:
                     from Autodesk.Revit.DB import WorksetId
                     ws_param = elem.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ELEM_PARTITION_PARAM)

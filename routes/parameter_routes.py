@@ -20,7 +20,7 @@ def _set_param(param, value):
     elif st == 'Integer':
         param.Set(int(value))
     elif st == 'ElementId':
-        param.Set(ElementId(int(value)))
+        param.Set(_mkid(int(value)))
 
 def _unq(s):
     """Minimal URL-decode for IronPython 2.7 (handles %XX and +)."""
@@ -91,6 +91,12 @@ def _idv(eid):
     except AttributeError:
         return eid.IntegerValue
 
+def _mkid(i):
+    """Build an ElementId from an int (Revit 2026: force Int64 overload to avoid
+    ambiguity with ElementId(BuiltInParameter)/(BuiltInCategory))."""
+    import System
+    return ElementId(System.Int64(i))
+
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>/parameters', methods=['GET'])
@@ -98,7 +104,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        elem = doc.GetElement(ElementId(element_id))
+        elem = doc.GetElement(_mkid(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
         include_ro = _qp(request).get('include_read_only', 'false').lower() == 'true'
@@ -136,7 +142,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        elem = doc.GetElement(ElementId(element_id))
+        elem = doc.GetElement(_mkid(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
         param = elem.LookupParameter(param_name)
@@ -152,7 +158,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         body = request.data
-        elem = doc.GetElement(ElementId(element_id))
+        elem = doc.GetElement(_mkid(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
         param = elem.LookupParameter(body['param_name'])
@@ -172,7 +178,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        elem = doc.GetElement(ElementId(element_id))
+        elem = doc.GetElement(_mkid(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
         results = {}
@@ -198,7 +204,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        elem = doc.GetElement(ElementId(type_id))
+        elem = doc.GetElement(_mkid(type_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Type not found'})
         results = []
@@ -217,7 +223,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         body = request.data
-        elem = doc.GetElement(ElementId(type_id))
+        elem = doc.GetElement(_mkid(type_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Type not found'})
         param = elem.LookupParameter(body['param_name'])

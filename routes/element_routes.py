@@ -126,6 +126,12 @@ def _idv(eid):
     except AttributeError:
         return eid.IntegerValue
 
+def _mkid(i):
+    """Build an ElementId from an int (Revit 2026: force Int64 overload to avoid
+    ambiguity with ElementId(BuiltInParameter)/(BuiltInCategory))."""
+    import System
+    return ElementId(System.Int64(i))
+
 def _get_routes(api):
 
     @api.route('/elements/<int:element_id>', methods=['GET'])
@@ -134,7 +140,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         uidoc = _ud
-        elem_id = ElementId(element_id)
+        elem_id = _mkid(element_id)
         elem = doc.GetElement(elem_id)
         if elem is None:
             return Response(status_code=404, data={'error': 'Element {} not found'.format(element_id)})
@@ -232,7 +238,7 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         uidoc = _ud
         from Autodesk.Revit.DB import FamilyInstanceFilter
-        target_id = ElementId(type_id)
+        target_id = _mkid(type_id)
         results = []
         collector = FilteredElementCollector(doc).WhereElementIsNotElementType()
         for elem in collector:
@@ -290,7 +296,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         uidoc = _ud
-        ids = [ElementId(i) for i in request.data.get('element_ids', [])]
+        ids = [_mkid(i) for i in request.data.get('element_ids', [])]
         from System.Collections.Generic import List as NetList
         id_list = NetList[ElementId](ids)
         uidoc.Selection.SetElementIds(id_list)
@@ -313,7 +319,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         uidoc = _ud
-        ids = [ElementId(i) for i in request.data.get('element_ids', [])]
+        ids = [_mkid(i) for i in request.data.get('element_ids', [])]
         deleted = []
         failed = []
         with Transaction(doc, 'MCP: Delete Elements') as t:
@@ -338,7 +344,7 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         uidoc = _ud
         body = request.data
-        ids = [ElementId(i) for i in body.get('element_ids', [])]
+        ids = [_mkid(i) for i in body.get('element_ids', [])]
         delta = XYZ(body.get('delta_x', 0), body.get('delta_y', 0), body.get('delta_z', 0))
         moved = []
         with Transaction(doc, 'MCP: Move Elements') as t:
@@ -359,7 +365,7 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         uidoc = _ud
         body = request.data
-        ids = [ElementId(i) for i in body.get('element_ids', [])]
+        ids = [_mkid(i) for i in body.get('element_ids', [])]
         delta = XYZ(body.get('delta_x', 0), body.get('delta_y', 0), body.get('delta_z', 0))
         from System.Collections.Generic import List as NetList
         id_list = NetList[ElementId](ids)
@@ -378,7 +384,7 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         uidoc = _ud
         body = request.data
-        ids = [ElementId(i) for i in body.get('element_ids', [])]
+        ids = [_mkid(i) for i in body.get('element_ids', [])]
         pinned = body.get('pinned', True)
         changed = 0
         with Transaction(doc, 'MCP: Pin/Unpin Elements') as t:
@@ -397,7 +403,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         uidoc = _ud
-        elem = doc.GetElement(ElementId(element_id))
+        elem = doc.GetElement(_mkid(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
         loc = elem.Location
@@ -417,7 +423,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         uidoc = _ud
-        elem = doc.GetElement(ElementId(element_id))
+        elem = doc.GetElement(_mkid(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
         dep_ids = elem.GetDependentElements(None)

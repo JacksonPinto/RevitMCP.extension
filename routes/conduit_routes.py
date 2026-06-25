@@ -233,6 +233,12 @@ def _idv(eid):
     except AttributeError:
         return eid.IntegerValue
 
+def _mkid(i):
+    """Build an ElementId from an int (Revit 2026: force Int64 overload to avoid
+    ambiguity with ElementId(BuiltInParameter)/(BuiltInCategory))."""
+    import System
+    return ElementId(System.Int64(i))
+
 def _get_routes(api):
 
     @api.route('/conduit/circuits', methods=['GET'])
@@ -263,7 +269,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        system = doc.GetElement(ElementId(circuit_id))
+        system = doc.GetElement(_mkid(circuit_id))
         if not isinstance(system, ElectricalSystem):
             return Response(status_code=404, data={'error': 'Circuit not found'})
         panel = system.BaseEquipment
@@ -301,7 +307,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        ct = doc.GetElement(ElementId(type_id))
+        ct = doc.GetElement(_mkid(type_id))
         if ct is None:
             return Response(status_code=404, data={'error': 'ConduitType not found'})
         standard_sizes_mm = [12, 16, 20, 25, 32, 40, 50, 63, 75, 100]
@@ -315,7 +321,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        system = doc.GetElement(ElementId(circuit_id))
+        system = doc.GetElement(_mkid(circuit_id))
         if not isinstance(system, ElectricalSystem):
             return Response(status_code=404, data={'error': 'Circuit not found'})
         panel = system.BaseEquipment
@@ -352,7 +358,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        system = doc.GetElement(ElementId(circuit_id))
+        system = doc.GetElement(_mkid(circuit_id))
         if not isinstance(system, ElectricalSystem):
             return Response(status_code=404, data={'error': 'Circuit not found'})
         panel = system.BaseEquipment
@@ -408,10 +414,10 @@ def _get_routes(api):
         connect_to_panel = bool(body.get('connect_to_panel', True))
         create_fittings = bool(body.get('create_fittings', True))
         level_name = body.get('level_name')
-        system = doc.GetElement(ElementId(circuit_id))
+        system = doc.GetElement(_mkid(circuit_id))
         if not isinstance(system, ElectricalSystem):
             return Response(status_code=404, data={'error': 'Circuit not found'})
-        conduit_type = doc.GetElement(ElementId(conduit_type_id))
+        conduit_type = doc.GetElement(_mkid(conduit_type_id))
         if conduit_type is None or not isinstance(conduit_type, ConduitType):
             return Response(status_code=404, data={'error': 'ConduitType not found'})
         panel = system.BaseEquipment
@@ -574,7 +580,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        elem = doc.GetElement(ElementId(element_id))
+        elem = doc.GetElement(_mkid(element_id))
         if elem is None:
             return Response(status_code=404, data={'error': 'Element not found'})
         s = _elem_summary(elem)
@@ -606,7 +612,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         circuit_id = int(request.data.get('circuit_id'))
-        system = doc.GetElement(ElementId(circuit_id))
+        system = doc.GetElement(_mkid(circuit_id))
         if not isinstance(system, ElectricalSystem):
             return Response(status_code=404, data={'error': 'Circuit not found'})
         circuit_elem_ids = {_idv(e.Id) for e in system.Elements}

@@ -172,6 +172,12 @@ def _idv(eid):
     except AttributeError:
         return eid.IntegerValue
 
+def _mkid(i):
+    """Build an ElementId from an int (Revit 2026: force Int64 overload to avoid
+    ambiguity with ElementId(BuiltInParameter)/(BuiltInCategory))."""
+    import System
+    return ElementId(System.Int64(i))
+
 def _get_routes(api):
 
     @api.route('/rooms', methods=['GET'])
@@ -290,7 +296,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        space = doc.GetElement(ElementId(space_id))
+        space = doc.GetElement(_mkid(space_id))
         if space is None:
             return Response(status_code=404, data={'error': 'Space not found'})
         counts = {}
@@ -316,7 +322,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         category = _unq(category)
-        space = doc.GetElement(ElementId(space_id))
+        space = doc.GetElement(_mkid(space_id))
         if space is None:
             return Response(status_code=404, data={'error': 'Space not found'})
         results = []
@@ -338,7 +344,7 @@ def _get_routes(api):
         global doc
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
-        room = doc.GetElement(ElementId(room_id))
+        room = doc.GetElement(_mkid(room_id))
         if room is None:
             return Response(status_code=404, data={'error': 'Room not found'})
         counts = {}
@@ -364,7 +370,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         category = _unq(category)
-        room = doc.GetElement(ElementId(room_id))
+        room = doc.GetElement(_mkid(room_id))
         if room is None:
             return Response(status_code=404, data={'error': 'Room not found'})
         results = []
