@@ -12,16 +12,49 @@ _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 uidoc = __revit__.ActiveUIDocument
 
+def _safe_name(el):
+    """Element.Name throws on some Revit 2026 elements; fall back to name params, else None."""
+    if el is None:
+        return None
+    try:
+        return el.Name
+    except Exception:
+        pass
+    try:
+        for bip in (BuiltInParameter.SYMBOL_NAME_PARAM, BuiltInParameter.ALL_MODEL_TYPE_NAME):
+            p = el.get_Parameter(bip)
+            if p and p.AsString():
+                return p.AsString()
+    except Exception:
+        pass
+    return None
+
+def _safe_cat(elem):
+    try:
+        return elem.Category.Name if elem.Category else None
+    except Exception:
+        return None
+
 def _elem_to_dict(elem):
-    """Convert a Revit element to a summary dict."""
-    d = {'element_id': _idv(elem.Id), 'category': elem.Category.Name if elem.Category else None, 'name': elem.Name}
-    type_elem = doc.GetElement(elem.GetTypeId()) if elem.GetTypeId() != ElementId.InvalidElementId else None
-    if type_elem:
-        d['type_name'] = type_elem.Name
-        d['family_name'] = getattr(type_elem, 'FamilyName', None) or (type_elem.LookupParameter('Family Name').AsString() if type_elem.LookupParameter('Family Name') else None)
-    level_param = elem.LookupParameter('Level') or elem.LookupParameter('Reference Level')
-    if level_param:
-        d['level'] = level_param.AsValueString()
+    """Convert a Revit element to a summary dict (defensive against 2026 .Name errors)."""
+    d = {'element_id': _idv(elem.Id), 'category': _safe_cat(elem), 'name': _safe_name(elem)}
+    try:
+        tid = elem.GetTypeId()
+        type_elem = doc.GetElement(tid) if tid != ElementId.InvalidElementId else None
+    except Exception:
+        type_elem = None
+    if type_elem is not None:
+        d['type_name'] = _safe_name(type_elem)
+        try:
+            d['family_name'] = getattr(type_elem, 'FamilyName', None)
+        except Exception:
+            d['family_name'] = None
+    try:
+        level_param = elem.LookupParameter('Level') or elem.LookupParameter('Reference Level')
+        if level_param:
+            d['level'] = level_param.AsValueString()
+    except Exception:
+        pass
     return d
 
 def _unq(s):
