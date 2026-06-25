@@ -150,6 +150,48 @@ def _get_routes(api):
                     results.append(_elem_to_dict(elem))
         return Response(data=results)
 
+    @api.route('/elements/by_category_path/<category>', methods=['GET'])
+    def get_elements_by_category_path(uiapp, category):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
+        category = _unq(category)
+        results = []
+        for elem in FilteredElementCollector(doc).WhereElementIsNotElementType():
+            if elem.Category and elem.Category.Name == category:
+                results.append(_elem_to_dict(elem))
+        return Response(data={'category': category, 'count': len(results), 'elements': results})
+
+    @api.route('/active_view/categories', methods=['GET'])
+    def get_active_view_categories(uiapp):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
+        av = doc.ActiveView
+        counts = {}
+        for elem in FilteredElementCollector(doc, av.Id).WhereElementIsNotElementType():
+            if elem.Category:
+                n = elem.Category.Name
+                counts[n] = counts.get(n, 0) + 1
+        cats = [{'category': k, 'count': v} for (k, v) in sorted(counts.items(), key=lambda kv: -kv[1])]
+        return Response(data={'active_view': av.Name, 'view_id': _idv(av.Id), 'category_count': len(cats), 'categories': cats})
+
+    @api.route('/active_view/category/<category>', methods=['GET'])
+    def get_active_view_category(uiapp, category):
+        global doc, uidoc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        uidoc = _ud
+        category = _unq(category)
+        av = doc.ActiveView
+        results = []
+        for elem in FilteredElementCollector(doc, av.Id).WhereElementIsNotElementType():
+            if elem.Category and elem.Category.Name == category:
+                results.append(_elem_to_dict(elem))
+        return Response(data={'active_view': av.Name, 'category': category, 'count': len(results), 'elements': results})
+
     @api.route('/elements/by_type/<int:type_id>', methods=['GET'])
     def get_elements_by_type(uiapp, type_id):
         global doc, uidoc

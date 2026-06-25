@@ -169,3 +169,17 @@ def _get_routes(api):
         except Exception:
             pass
         return Response(data=results)
+
+    @api.route('/spaces/active_view', methods=['GET'])
+    def list_spaces_active_view(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        av = doc.ActiveView
+        results = []
+        try:
+            for space in FilteredElementCollector(doc, av.Id).WherePasses(SpaceFilter()):
+                results.append({'element_id': _idv(space.Id), 'number': space.Number, 'name': space.Name, 'level': space.Level.Name if space.Level else None, 'area': space.Area})
+        except Exception as ex:
+            return Response(data={'active_view': av.Name, 'error': str(ex), 'count': 0, 'spaces': []})
+        return Response(data={'active_view': av.Name, 'count': len(results), 'spaces': results})
