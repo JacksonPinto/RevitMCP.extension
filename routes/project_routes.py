@@ -22,22 +22,24 @@ def _idv(eid):
     except AttributeError:
         return eid.IntegerValue
 
+def _safe_name(el):
+    try:
+        return el.Name
+    except Exception:
+        return None
+
 def _get_routes(api):
 
     @api.route('/_debug/echo', methods=['GET'])
     def _debug_echo(uiapp, request):
-        info = {'request_type': type(request).__name__,
-                'request_attrs': [a for a in dir(request) if not a.startswith('_')]}
+        info = {'request_type': type(request).__name__, 'request_attrs': [a for a in dir(request) if not a.startswith('_')]}
         p = getattr(request, 'params', None)
         info['params_type'] = type(p).__name__
         info['params_repr'] = repr(p)[:800]
         items = []
         try:
-            for x in (p or []):
-                items.append({'type': type(x).__name__, 'repr': repr(x)[:200],
-                              'key': getattr(x, 'key', None), 'value': getattr(x, 'value', None),
-                              'name': getattr(x, 'name', None),
-                              'attrs': [a for a in dir(x) if not a.startswith('_')][:40]})
+            for x in p or []:
+                items.append({'type': type(x).__name__, 'repr': repr(x)[:200], 'key': getattr(x, 'key', None), 'value': getattr(x, 'value', None), 'name': getattr(x, 'name', None), 'attrs': [a for a in dir(x) if not a.startswith('_')][:40]})
         except Exception as ex:
             items = [{'error': str(ex)}]
         info['items'] = items
@@ -53,7 +55,7 @@ def _get_routes(api):
             allattrs[a] = '<callable>' if callable(v) else repr(v)[:300]
         info['all_attrs'] = allattrs
         return Response(data=info)
-    """Register all project-related routes on the provided API object."""
+    'Register all project-related routes on the provided API object.'
 
     @api.route('/ping', methods=['GET'])
     def ping(uiapp):
@@ -75,7 +77,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         info = doc.ProjectInformation
-        return Response(data={'project_name': info.Name, 'project_number': info.Number, 'client_name': info.ClientName, 'building_name': info.BuildingName, 'address': info.Address, 'issue_date': info.IssueDate, 'status': info.Status, 'author': info.Author, 'file_path': doc.PathName, 'revit_version': app.VersionNumber, 'is_workshared': doc.IsWorkshared, 'is_detached': doc.IsDetached})
+        return Response(data={'project_name': _safe_name(info), 'project_number': info.Number, 'client_name': info.ClientName, 'building_name': info.BuildingName, 'address': info.Address, 'issue_date': info.IssueDate, 'status': info.Status, 'author': info.Author, 'file_path': doc.PathName, 'revit_version': app.VersionNumber, 'is_workshared': doc.IsWorkshared, 'is_detached': doc.IsDetached})
 
     @api.route('/project/info/set', methods=['POST'])
     def set_project_parameter(uiapp, request):
@@ -107,7 +109,7 @@ def _get_routes(api):
         category_counts = {}
         for elem in all_elements:
             if elem.Category:
-                cat_name = elem.Category.Name
+                cat_name = _safe_name(elem.Category)
                 category_counts[cat_name] = category_counts.get(cat_name, 0) + 1
         return Response(data={'total_elements': len(list(all_elements)), 'category_counts': category_counts, 'file_path': doc.PathName})
 
@@ -132,5 +134,5 @@ def _get_routes(api):
         result = []
         for link in collector:
             link_doc = link.GetLinkDocument()
-            result.append({'element_id': _idv(link.Id), 'name': link.Name, 'status': 'loaded' if link_doc is not None else 'unloaded', 'path': link_doc.PathName if link_doc else None})
+            result.append({'element_id': _idv(link.Id), 'name': _safe_name(link), 'status': 'loaded' if link_doc is not None else 'unloaded', 'path': link_doc.PathName if link_doc else None})
         return Response(data=result)

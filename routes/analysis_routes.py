@@ -17,7 +17,7 @@ def _unq(s):
         while i < len(s):
             if s[i] == '%' and i + 2 < len(s) + 1:
                 try:
-                    out.append(chr(int(s[i+1:i+3], 16)))
+                    out.append(chr(int(s[i + 1:i + 3], 16)))
                     i += 3
                     continue
                 except Exception:
@@ -44,8 +44,8 @@ def _qp(request):
                 if k is None and getattr(x, 'name', None) is not None:
                     k = x.name
                     v = getattr(x, 'value', None)
-                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
-                    k, v = x[0], x[1]
+                if k is None and isinstance(x, (list, tuple)) and (len(x) == 2):
+                    (k, v) = (x[0], x[1])
                 if k is not None:
                     out[str(k)] = v
         except Exception:
@@ -60,13 +60,13 @@ def _qp(request):
         if qs is None:
             for attr in ('uri', 'url', 'path'):
                 val = getattr(request, attr, None)
-                if val and isinstance(val, str) and '?' in val:
+                if val and isinstance(val, str) and ('?' in val):
                     qs = val.split('?', 1)[1]
                     break
         if qs:
             for pair in qs.split('&'):
                 if '=' in pair:
-                    k, v = pair.split('=', 1)
+                    (k, v) = pair.split('=', 1)
                     out[_unq(k)] = _unq(v)
     return out
 
@@ -82,6 +82,12 @@ def _mkid(i):
     ambiguity with ElementId(BuiltInParameter)/(BuiltInCategory))."""
     import System
     return ElementId(System.Int64(i))
+
+def _safe_name(el):
+    try:
+        return el.Name
+    except Exception:
+        return None
 
 def _get_routes(api):
 
@@ -130,7 +136,7 @@ def _get_routes(api):
         for room in FilteredElementCollector(doc).WherePasses(RoomFilter()):
             if room.Area <= 0:
                 continue
-            lvl = room.Level.Name if room.Level else 'Unknown'
+            lvl = _safe_name(room.Level) if room.Level else 'Unknown'
             if level_name and lvl != level_name:
                 continue
             if lvl not in level_areas:
@@ -153,7 +159,7 @@ def _get_routes(api):
         total = 0
         breakdown = {}
         for elem in FilteredElementCollector(doc).WhereElementIsNotElementType():
-            if not (elem.Category and elem.Category.Name == category_name):
+            if not (elem.Category and _safe_name(elem.Category) == category_name):
                 continue
             if level_name:
                 lvl_p = elem.LookupParameter('Level') or elem.LookupParameter('Reference Level')
@@ -164,7 +170,7 @@ def _get_routes(api):
                 area_val = area_param.AsDouble()
                 total += area_val
                 type_elem = doc.GetElement(elem.GetTypeId())
-                type_name = type_elem.Name if type_elem else 'Unknown'
+                type_name = _safe_name(type_elem) if type_elem else 'Unknown'
                 breakdown[type_name] = breakdown.get(type_name, 0) + area_val
         return Response(data={'category': category_name, 'total_area': total, 'element_count': len(breakdown), 'breakdown': [{'type_name': k, 'area': v} for (k, v) in breakdown.items()]})
 
@@ -178,7 +184,7 @@ def _get_routes(api):
             return Response(status_code=404, data={'error': 'Element not found'})
         vol_param = elem.LookupParameter('Volume')
         vol = vol_param.AsDouble() if vol_param else 0
-        return Response(data={'element_id': element_id, 'volume': vol, 'category': elem.Category.Name if elem.Category else None})
+        return Response(data={'element_id': element_id, 'volume': vol, 'category': _safe_name(elem.Category) if elem.Category else None})
 
     @api.route('/analysis/elements_in_box', methods=['POST'])
     def elements_in_box(uiapp, request):
@@ -192,9 +198,9 @@ def _get_routes(api):
         category_filter = body.get('category')
         results = []
         for elem in collector:
-            if category_filter and (not (elem.Category and elem.Category.Name == category_filter)):
+            if category_filter and (not (elem.Category and _safe_name(elem.Category) == category_filter)):
                 continue
-            results.append({'element_id': _idv(elem.Id), 'category': elem.Category.Name if elem.Category else None})
+            results.append({'element_id': _idv(elem.Id), 'category': _safe_name(elem.Category) if elem.Category else None})
         return Response(data=results)
 
     @api.route('/analysis/clash_detection', methods=['POST'])
@@ -206,8 +212,8 @@ def _get_routes(api):
         cat_a = body.get('category_a')
         cat_b = body.get('category_b')
         tolerance = float(body.get('tolerance', 0))
-        elems_a = [e for e in FilteredElementCollector(doc).WhereElementIsNotElementType() if e.Category and e.Category.Name == cat_a]
-        elems_b = [e for e in FilteredElementCollector(doc).WhereElementIsNotElementType() if e.Category and e.Category.Name == cat_b]
+        elems_a = [e for e in FilteredElementCollector(doc).WhereElementIsNotElementType() if e.Category and _safe_name(e.Category) == cat_a]
+        elems_b = [e for e in FilteredElementCollector(doc).WhereElementIsNotElementType() if e.Category and _safe_name(e.Category) == cat_b]
         clashes = []
         for a in elems_a:
             bb_a = a.get_BoundingBox(None)
@@ -236,7 +242,7 @@ def _get_routes(api):
         cat_counts = {}
         for e in all_elems:
             if e.Category:
-                cn = e.Category.Name
+                cn = _safe_name(e.Category)
                 cat_counts[cn] = cat_counts.get(cn, 0) + 1
         top_cats = sorted(cat_counts.items(), key=lambda x: x[1], reverse=True)[:20]
         levels = sorted(FilteredElementCollector(doc).OfClass(Level), key=lambda l: l.Elevation)
@@ -245,4 +251,4 @@ def _get_routes(api):
         from Autodesk.Revit.DB import View
         view_count = sum((1 for v in FilteredElementCollector(doc).OfClass(View) if not v.IsTemplate))
         warnings = doc.GetWarnings()
-        return Response(data={'project_name': info.Name, 'project_number': info.Number, 'level_count': len(list(levels)), 'levels': [{'name': l.Name, 'elevation_ft': l.Elevation} for l in levels], 'sheet_count': sheet_count, 'view_count': view_count, 'warning_count': len(list(warnings)), 'top_categories': [{'category': k, 'count': v} for (k, v) in top_cats], 'total_elements': len(all_elems), 'file_path': doc.PathName})
+        return Response(data={'project_name': _safe_name(info), 'project_number': info.Number, 'level_count': len(list(levels)), 'levels': [{'name': _safe_name(l), 'elevation_ft': l.Elevation} for l in levels], 'sheet_count': sheet_count, 'view_count': view_count, 'warning_count': len(list(warnings)), 'top_categories': [{'category': k, 'count': v} for (k, v) in top_cats], 'total_elements': len(all_elems), 'file_path': doc.PathName})

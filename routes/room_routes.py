@@ -11,7 +11,7 @@ _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
 def _room_to_dict(room):
-    return {'element_id': _idv(room.Id), 'number': room.Number, 'name': room.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ROOM_NAME).AsString() if room.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ROOM_NAME) else room.Name, 'level': room.Level.Name if room.Level else None, 'area': room.Area, 'perimeter': room.Perimeter}
+    return {'element_id': _idv(room.Id), 'number': room.Number, 'name': room.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ROOM_NAME).AsString() if room.get_Parameter(Autodesk.Revit.DB.BuiltInParameter.ROOM_NAME) else _safe_name(room), 'level': _safe_name(room.Level) if room.Level else None, 'area': room.Area, 'perimeter': room.Perimeter}
 
 def _unq(s):
     """Minimal URL-decode for IronPython 2.7 (handles %XX and +)."""
@@ -22,7 +22,7 @@ def _unq(s):
         while i < len(s):
             if s[i] == '%' and i + 2 < len(s) + 1:
                 try:
-                    out.append(chr(int(s[i+1:i+3], 16)))
+                    out.append(chr(int(s[i + 1:i + 3], 16)))
                     i += 3
                     continue
                 except Exception:
@@ -36,6 +36,7 @@ def _unq(s):
 def _spatial_dict(el):
     """Robust room/space summary (2026-safe): number, name, level, area via params."""
     BIP = Autodesk.Revit.DB.BuiltInParameter
+
     def _ps(bip):
         try:
             p = el.get_Parameter(bip)
@@ -51,11 +52,11 @@ def _spatial_dict(el):
     name = _ps(BIP.ROOM_NAME)
     if not name:
         try:
-            name = el.Name
+            name = _safe_name(el)
         except Exception:
             name = None
     try:
-        lvl = el.Level.Name if el.Level else None
+        lvl = _safe_name(el.Level) if el.Level else None
     except Exception:
         lvl = None
     try:
@@ -66,7 +67,7 @@ def _spatial_dict(el):
 
 def _safe_cat2(elem):
     try:
-        return elem.Category.Name if elem.Category else None
+        return _safe_name(elem.Category) if elem.Category else None
     except Exception:
         return None
 
@@ -96,7 +97,7 @@ def _loc_point(elem):
 def _el_brief(elem):
     nm = None
     try:
-        nm = elem.Name
+        nm = _safe_name(elem)
     except Exception:
         pass
     tnm = None
@@ -104,7 +105,7 @@ def _el_brief(elem):
         t = doc.GetElement(elem.GetTypeId())
         if t is not None:
             try:
-                tnm = t.Name
+                tnm = _safe_name(t)
             except Exception:
                 tnm = None
     except Exception:
@@ -139,8 +140,8 @@ def _qp(request):
                 if k is None and getattr(x, 'name', None) is not None:
                     k = x.name
                     v = getattr(x, 'value', None)
-                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
-                    k, v = x[0], x[1]
+                if k is None and isinstance(x, (list, tuple)) and (len(x) == 2):
+                    (k, v) = (x[0], x[1])
                 if k is not None:
                     out[str(k)] = v
         except Exception:
@@ -155,13 +156,13 @@ def _qp(request):
         if qs is None:
             for attr in ('uri', 'url', 'path'):
                 val = getattr(request, attr, None)
-                if val and isinstance(val, str) and '?' in val:
+                if val and isinstance(val, str) and ('?' in val):
                     qs = val.split('?', 1)[1]
                     break
         if qs:
             for pair in qs.split('&'):
                 if '=' in pair:
-                    k, v = pair.split('=', 1)
+                    (k, v) = pair.split('=', 1)
                     out[_unq(k)] = _unq(v)
     return out
 
@@ -178,6 +179,12 @@ def _mkid(i):
     import System
     return ElementId(System.Int64(i))
 
+def _safe_name(el):
+    try:
+        return el.Name
+    except Exception:
+        return None
+
 def _get_routes(api):
 
     @api.route('/rooms', methods=['GET'])
@@ -192,7 +199,7 @@ def _get_routes(api):
         for room in FilteredElementCollector(doc).WherePasses(RoomFilter()):
             if unplaced and room.Area > 0:
                 continue
-            if level_name and room.Level and (room.Level.Name != level_name):
+            if level_name and room.Level and (_safe_name(room.Level) != level_name):
                 continue
             d = _room_to_dict(room)
             if search and search not in d['number'].lower() and (search not in d['name'].lower()):
@@ -217,7 +224,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         body = request.data
-        level = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == body['level_name']), None)
+        level = next((l for l in FilteredElementCollector(doc).OfClass(Level) if _safe_name(l) == body['level_name']), None)
         if not level:
             return Response(status_code=404, data={'error': 'Level not found'})
         from Autodesk.Revit.DB import UV
@@ -230,7 +237,7 @@ def _get_routes(api):
             if body.get('room_name'):
                 room.Name = body['room_name']
             t.Commit()
-        return Response(data={'element_id': _idv(room.Id), 'number': room.Number, 'name': room.Name})
+        return Response(data={'element_id': _idv(room.Id), 'number': room.Number, 'name': _safe_name(room)})
 
     @api.route('/rooms/at_point', methods=['GET'])
     def get_room_at_point(uiapp, request):
@@ -241,7 +248,7 @@ def _get_routes(api):
         x = float(_qp(request).get('x', 0))
         y = float(_qp(request).get('y', 0))
         level_name = _qp(request).get('level_name')
-        level = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == level_name), None)
+        level = next((l for l in FilteredElementCollector(doc).OfClass(Level) if _safe_name(l) == level_name), None)
         if not level:
             return Response(status_code=404, data={'error': 'Level not found'})
         pt = XYZ(x, y, level.Elevation)
@@ -275,7 +282,7 @@ def _get_routes(api):
                 results.append(_spatial_dict(space))
             except Exception:
                 pass
-        return Response(data={'active_view': av.Name, 'count': len(results), 'spaces': results})
+        return Response(data={'active_view': _safe_name(av), 'count': len(results), 'spaces': results})
 
     @api.route('/rooms/active_view', methods=['GET'])
     def list_rooms_active_view(uiapp):
@@ -289,7 +296,7 @@ def _get_routes(api):
                 results.append(_spatial_dict(room))
             except Exception:
                 pass
-        return Response(data={'active_view': av.Name, 'count': len(results), 'rooms': results})
+        return Response(data={'active_view': _safe_name(av), 'count': len(results), 'rooms': results})
 
     @api.route('/spaces/<int:space_id>/contents', methods=['GET'])
     def space_contents(uiapp, space_id):

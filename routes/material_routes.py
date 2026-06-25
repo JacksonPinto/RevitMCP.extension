@@ -8,7 +8,7 @@ _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
 def _mat_to_dict(m):
-    return {'element_id': _idv(m.Id), 'name': m.Name, 'material_class': m.MaterialClass, 'color_r': m.Color.Red if m.Color else 0, 'color_g': m.Color.Green if m.Color else 0, 'color_b': m.Color.Blue if m.Color else 0, 'transparency': m.Transparency, 'shininess': m.Shininess, 'smoothness': m.Smoothness}
+    return {'element_id': _idv(m.Id), 'name': _safe_name(m), 'material_class': m.MaterialClass, 'color_r': m.Color.Red if m.Color else 0, 'color_g': m.Color.Green if m.Color else 0, 'color_b': m.Color.Blue if m.Color else 0, 'transparency': m.Transparency, 'shininess': m.Shininess, 'smoothness': m.Smoothness}
 
 def _unq(s):
     """Minimal URL-decode for IronPython 2.7 (handles %XX and +)."""
@@ -19,7 +19,7 @@ def _unq(s):
         while i < len(s):
             if s[i] == '%' and i + 2 < len(s) + 1:
                 try:
-                    out.append(chr(int(s[i+1:i+3], 16)))
+                    out.append(chr(int(s[i + 1:i + 3], 16)))
                     i += 3
                     continue
                 except Exception:
@@ -46,8 +46,8 @@ def _qp(request):
                 if k is None and getattr(x, 'name', None) is not None:
                     k = x.name
                     v = getattr(x, 'value', None)
-                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
-                    k, v = x[0], x[1]
+                if k is None and isinstance(x, (list, tuple)) and (len(x) == 2):
+                    (k, v) = (x[0], x[1])
                 if k is not None:
                     out[str(k)] = v
         except Exception:
@@ -62,13 +62,13 @@ def _qp(request):
         if qs is None:
             for attr in ('uri', 'url', 'path'):
                 val = getattr(request, attr, None)
-                if val and isinstance(val, str) and '?' in val:
+                if val and isinstance(val, str) and ('?' in val):
                     qs = val.split('?', 1)[1]
                     break
         if qs:
             for pair in qs.split('&'):
                 if '=' in pair:
-                    k, v = pair.split('=', 1)
+                    (k, v) = pair.split('=', 1)
                     out[_unq(k)] = _unq(v)
     return out
 
@@ -78,6 +78,12 @@ def _idv(eid):
         return eid.Value
     except AttributeError:
         return eid.IntegerValue
+
+def _safe_name(el):
+    try:
+        return el.Name
+    except Exception:
+        return None
 
 def _get_routes(api):
 
@@ -89,7 +95,7 @@ def _get_routes(api):
         search = _qp(request).get('search', '').lower()
         results = []
         for m in FilteredElementCollector(doc).OfClass(Material):
-            if search and search not in m.Name.lower():
+            if search and search not in _safe_name(m).lower():
                 continue
             results.append(_mat_to_dict(m))
         return Response(data=results)
@@ -100,7 +106,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         name = _qp(request).get('material_name')
-        m = next((m for m in FilteredElementCollector(doc).OfClass(Material) if m.Name == name), None)
+        m = next((m for m in FilteredElementCollector(doc).OfClass(Material) if _safe_name(m) == name), None)
         if not m:
             return Response(status_code=404, data={'error': "Material '{}' not found".format(name)})
         return Response(data=_mat_to_dict(m))
@@ -127,7 +133,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         body = request.data
-        src = next((m for m in FilteredElementCollector(doc).OfClass(Material) if m.Name == body['source_name']), None)
+        src = next((m for m in FilteredElementCollector(doc).OfClass(Material) if _safe_name(m) == body['source_name']), None)
         if not src:
             return Response(status_code=404, data={'error': 'Source material not found'})
         with Transaction(doc, 'MCP: Duplicate Material') as t:

@@ -19,7 +19,7 @@ def _unq(s):
         while i < len(s):
             if s[i] == '%' and i + 2 < len(s) + 1:
                 try:
-                    out.append(chr(int(s[i+1:i+3], 16)))
+                    out.append(chr(int(s[i + 1:i + 3], 16)))
                     i += 3
                     continue
                 except Exception:
@@ -46,8 +46,8 @@ def _qp(request):
                 if k is None and getattr(x, 'name', None) is not None:
                     k = x.name
                     v = getattr(x, 'value', None)
-                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
-                    k, v = x[0], x[1]
+                if k is None and isinstance(x, (list, tuple)) and (len(x) == 2):
+                    (k, v) = (x[0], x[1])
                 if k is not None:
                     out[str(k)] = v
         except Exception:
@@ -62,13 +62,13 @@ def _qp(request):
         if qs is None:
             for attr in ('uri', 'url', 'path'):
                 val = getattr(request, attr, None)
-                if val and isinstance(val, str) and '?' in val:
+                if val and isinstance(val, str) and ('?' in val):
                     qs = val.split('?', 1)[1]
                     break
         if qs:
             for pair in qs.split('&'):
                 if '=' in pair:
-                    k, v = pair.split('=', 1)
+                    (k, v) = pair.split('=', 1)
                     out[_unq(k)] = _unq(v)
     return out
 
@@ -78,6 +78,12 @@ def _idv(eid):
         return eid.Value
     except AttributeError:
         return eid.IntegerValue
+
+def _safe_name(el):
+    try:
+        return el.Name
+    except Exception:
+        return None
 
 def _get_routes(api):
 
@@ -92,14 +98,14 @@ def _get_routes(api):
             for sys in FilteredElementCollector(doc).OfClass(MechanicalSystem):
                 if system_type and system_type != 'DuctSystem':
                     continue
-                results.append({'type': 'DuctSystem', 'name': sys.Name, 'element_id': _idv(sys.Id)})
+                results.append({'type': 'DuctSystem', 'name': _safe_name(sys), 'element_id': _idv(sys.Id)})
         except Exception:
             pass
         try:
             for sys in FilteredElementCollector(doc).OfClass(PipingSystem):
                 if system_type and system_type != 'PipingSystem':
                     continue
-                results.append({'type': 'PipingSystem', 'name': sys.Name, 'element_id': _idv(sys.Id)})
+                results.append({'type': 'PipingSystem', 'name': _safe_name(sys), 'element_id': _idv(sys.Id)})
         except Exception:
             pass
         return Response(data=results)
@@ -140,7 +146,7 @@ def _get_routes(api):
         results = []
         try:
             for circuit in FilteredElementCollector(doc).OfClass(ElectricalSystem):
-                results.append({'element_id': _idv(circuit.Id), 'name': circuit.Name, 'load_name': circuit.LoadName if hasattr(circuit, 'LoadName') else None})
+                results.append({'element_id': _idv(circuit.Id), 'name': _safe_name(circuit), 'load_name': circuit.LoadName if hasattr(circuit, 'LoadName') else None})
         except Exception:
             pass
         return Response(data=results)
@@ -157,7 +163,7 @@ def _get_routes(api):
                 lvl_p = elem.LookupParameter('Level') or elem.LookupParameter('Reference Level')
                 if lvl_p and level_name not in (lvl_p.AsValueString() or ''):
                     continue
-            results.append({'element_id': _idv(elem.Id), 'name': elem.Name, 'category': 'Mechanical Equipment'})
+            results.append({'element_id': _idv(elem.Id), 'name': _safe_name(elem), 'category': 'Mechanical Equipment'})
         return Response(data=results)
 
     @api.route('/mep/light_fixtures', methods=['GET'])
@@ -167,7 +173,7 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         results = []
         for elem in FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_LightingFixtures).WhereElementIsNotElementType():
-            results.append({'element_id': _idv(elem.Id), 'name': elem.Name})
+            results.append({'element_id': _idv(elem.Id), 'name': _safe_name(elem)})
         return Response(data=results)
 
     @api.route('/mep/plumbing_fixtures', methods=['GET'])
@@ -177,5 +183,5 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         results = []
         for elem in FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_PlumbingFixtures).WhereElementIsNotElementType():
-            results.append({'element_id': _idv(elem.Id), 'name': elem.Name})
+            results.append({'element_id': _idv(elem.Id), 'name': _safe_name(elem)})
         return Response(data=results)

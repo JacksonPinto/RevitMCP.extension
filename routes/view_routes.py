@@ -11,11 +11,11 @@ _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
 def _view_to_dict(v):
-    return {'element_id': _idv(v.Id), 'name': v.Name, 'view_type': v.ViewType.ToString(), 'scale': v.Scale, 'detail_level': v.DetailLevel.ToString(), 'discipline': v.Discipline.ToString() if hasattr(v, 'Discipline') else None, 'is_template': v.IsTemplate, 'associated_level': v.GenLevel.Name if v.GenLevel else None}
+    return {'element_id': _idv(v.Id), 'name': _safe_name(v), 'view_type': v.ViewType.ToString(), 'scale': v.Scale, 'detail_level': v.DetailLevel.ToString(), 'discipline': v.Discipline.ToString() if hasattr(v, 'Discipline') else None, 'is_template': v.IsTemplate, 'associated_level': _safe_name(v.GenLevel) if v.GenLevel else None}
 
 def _find_level(level_name):
     for lvl in FilteredElementCollector(doc).OfClass(Level):
-        if lvl.Name == level_name:
+        if _safe_name(lvl) == level_name:
             return lvl
     return None
 
@@ -28,7 +28,7 @@ def _unq(s):
         while i < len(s):
             if s[i] == '%' and i + 2 < len(s) + 1:
                 try:
-                    out.append(chr(int(s[i+1:i+3], 16)))
+                    out.append(chr(int(s[i + 1:i + 3], 16)))
                     i += 3
                     continue
                 except Exception:
@@ -55,8 +55,8 @@ def _qp(request):
                 if k is None and getattr(x, 'name', None) is not None:
                     k = x.name
                     v = getattr(x, 'value', None)
-                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
-                    k, v = x[0], x[1]
+                if k is None and isinstance(x, (list, tuple)) and (len(x) == 2):
+                    (k, v) = (x[0], x[1])
                 if k is not None:
                     out[str(k)] = v
         except Exception:
@@ -71,13 +71,13 @@ def _qp(request):
         if qs is None:
             for attr in ('uri', 'url', 'path'):
                 val = getattr(request, attr, None)
-                if val and isinstance(val, str) and '?' in val:
+                if val and isinstance(val, str) and ('?' in val):
                     qs = val.split('?', 1)[1]
                     break
         if qs:
             for pair in qs.split('&'):
                 if '=' in pair:
-                    k, v = pair.split('=', 1)
+                    (k, v) = pair.split('=', 1)
                     out[_unq(k)] = _unq(v)
     return out
 
@@ -87,6 +87,12 @@ def _idv(eid):
         return eid.Value
     except AttributeError:
         return eid.IntegerValue
+
+def _safe_name(el):
+    try:
+        return el.Name
+    except Exception:
+        return None
 
 def _get_routes(api):
 
@@ -104,7 +110,7 @@ def _get_routes(api):
                 continue
             if vtype and v.ViewType.ToString() != vtype:
                 continue
-            if search and search not in v.Name.lower():
+            if search and search not in _safe_name(v).lower():
                 continue
             results.append(_view_to_dict(v))
         return Response(data=results)
@@ -116,7 +122,7 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         name = _qp(request).get('view_name')
         for v in FilteredElementCollector(doc).OfClass(View):
-            if v.Name == name:
+            if _safe_name(v) == name:
                 return Response(data=_view_to_dict(v))
         return Response(status_code=404, data={'error': "View '{}' not found".format(name)})
 
@@ -143,13 +149,13 @@ def _get_routes(api):
         with Transaction(doc, 'MCP: Create Floor Plan') as t:
             t.Start()
             view = ViewPlan.Create(doc, vft.Id, level.Id)
-            view_name = body.get('view_name') or '{} - Floor Plan'.format(level.Name)
+            view_name = body.get('view_name') or '{} - Floor Plan'.format(_safe_name(level))
             try:
                 view.Name = view_name
             except Exception:
                 pass
             t.Commit()
-        return Response(data={'element_id': _idv(view.Id), 'name': view.Name})
+        return Response(data={'element_id': _idv(view.Id), 'name': _safe_name(view)})
 
     @api.route('/views/duplicate', methods=['POST'])
     def duplicate_view(uiapp, request):
@@ -160,7 +166,7 @@ def _get_routes(api):
         src_name = body.get('source_view_name')
         new_name = body.get('new_view_name')
         with_detailing = body.get('with_detailing', False)
-        src_view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == src_name), None)
+        src_view = next((v for v in FilteredElementCollector(doc).OfClass(View) if _safe_name(v) == src_name), None)
         if src_view is None:
             return Response(status_code=404, data={'error': "View '{}' not found".format(src_name)})
         option = ViewDuplicateOption.WithDetailing if with_detailing else ViewDuplicateOption.Duplicate
@@ -181,8 +187,8 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         body = request.data
-        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['view_name']), None)
-        template = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.IsTemplate and v.Name == body['template_name']), None)
+        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if _safe_name(v) == body['view_name']), None)
+        template = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.IsTemplate and _safe_name(v) == body['template_name']), None)
         if not view:
             return Response(status_code=404, data={'error': "View '{}' not found".format(body['view_name'])})
         if not template:
@@ -199,7 +205,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         body = request.data
-        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['view_name']), None)
+        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if _safe_name(v) == body['view_name']), None)
         if not view:
             return Response(status_code=404, data={'error': "View '{}' not found".format(body['view_name'])})
         old_scale = view.Scale
@@ -216,7 +222,7 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         from Autodesk.Revit.DB import ViewDetailLevel
         body = request.data
-        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['view_name']), None)
+        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if _safe_name(v) == body['view_name']), None)
         if not view:
             return Response(status_code=404, data={'error': 'View not found'})
         level_map = {'Coarse': ViewDetailLevel.Coarse, 'Medium': ViewDetailLevel.Medium, 'Fine': ViewDetailLevel.Fine}
@@ -232,7 +238,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         body = request.data
-        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == body['old_name']), None)
+        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if _safe_name(v) == body['old_name']), None)
         if not view:
             return Response(status_code=404, data={'error': 'View not found'})
         with Transaction(doc, 'MCP: Rename View') as t:
@@ -247,7 +253,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         view_name = request.data.get('view_name')
-        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == view_name), None)
+        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if _safe_name(v) == view_name), None)
         if not view:
             return Response(status_code=404, data={'error': 'View not found'})
         with Transaction(doc, 'MCP: Delete View') as t:

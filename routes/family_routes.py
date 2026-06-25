@@ -21,7 +21,7 @@ def _unq(s):
         while i < len(s):
             if s[i] == '%' and i + 2 < len(s) + 1:
                 try:
-                    out.append(chr(int(s[i+1:i+3], 16)))
+                    out.append(chr(int(s[i + 1:i + 3], 16)))
                     i += 3
                     continue
                 except Exception:
@@ -48,8 +48,8 @@ def _qp(request):
                 if k is None and getattr(x, 'name', None) is not None:
                     k = x.name
                     v = getattr(x, 'value', None)
-                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
-                    k, v = x[0], x[1]
+                if k is None and isinstance(x, (list, tuple)) and (len(x) == 2):
+                    (k, v) = (x[0], x[1])
                 if k is not None:
                     out[str(k)] = v
         except Exception:
@@ -64,13 +64,13 @@ def _qp(request):
         if qs is None:
             for attr in ('uri', 'url', 'path'):
                 val = getattr(request, attr, None)
-                if val and isinstance(val, str) and '?' in val:
+                if val and isinstance(val, str) and ('?' in val):
                     qs = val.split('?', 1)[1]
                     break
         if qs:
             for pair in qs.split('&'):
                 if '=' in pair:
-                    k, v = pair.split('=', 1)
+                    (k, v) = pair.split('=', 1)
                     out[_unq(k)] = _unq(v)
     return out
 
@@ -87,6 +87,12 @@ def _mkid(i):
     import System
     return ElementId(System.Int64(i))
 
+def _safe_name(el):
+    try:
+        return el.Name
+    except Exception:
+        return None
+
 def _get_routes(api):
 
     @api.route('/families/categories', methods=['GET'])
@@ -98,7 +104,7 @@ def _get_routes(api):
         cats = {}
         for fam in families:
             cat = fam.FamilyCategory
-            cat_name = cat.Name if cat else 'Unknown'
+            cat_name = _safe_name(cat) if cat else 'Unknown'
             cats[cat_name] = cats.get(cat_name, 0) + 1
         return Response(data=[{'category': k, 'family_count': v} for (k, v) in sorted(cats.items())])
 
@@ -114,12 +120,12 @@ def _get_routes(api):
         for fam in families:
             if category_filter:
                 cat = fam.FamilyCategory
-                if not cat or cat.Name != category_filter:
+                if not cat or _safe_name(cat) != category_filter:
                     continue
-            if search and search not in fam.Name.lower():
+            if search and search not in _safe_name(fam).lower():
                 continue
             type_count = fam.GetFamilySymbolIds().Count
-            results.append({'family_name': fam.Name, 'category': fam.FamilyCategory.Name if fam.FamilyCategory else None, 'is_system_family': fam.IsSystemFamily, 'is_in_place': fam.IsInPlace, 'type_count': type_count, 'element_id': _idv(fam.Id)})
+            results.append({'family_name': _safe_name(fam), 'category': _safe_name(fam.FamilyCategory) if fam.FamilyCategory else None, 'is_system_family': fam.IsSystemFamily, 'is_in_place': fam.IsInPlace, 'type_count': type_count, 'element_id': _idv(fam.Id)})
         return Response(data=results)
 
     @api.route('/families/types', methods=['GET'])
@@ -129,14 +135,14 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         family_name = _qp(request).get('family_name')
         families = FilteredElementCollector(doc).OfClass(Family).ToElements()
-        target = next((f for f in families if f.Name == family_name), None)
+        target = next((f for f in families if _safe_name(f) == family_name), None)
         if target is None:
             return Response(status_code=404, data={'error': "Family '{}' not found".format(family_name)})
         results = []
         for type_id in target.GetFamilySymbolIds():
             sym = doc.GetElement(type_id)
             if sym:
-                results.append({'type_name': sym.Name, 'element_id': _idv(sym.Id), 'is_active': sym.IsActive})
+                results.append({'type_name': _safe_name(sym), 'element_id': _idv(sym.Id), 'is_active': sym.IsActive})
         return Response(data=results)
 
     @api.route('/families/place', methods=['POST'])
@@ -154,13 +160,13 @@ def _get_routes(api):
         level_name = body.get('level_name')
         host_id = body.get('host_element_id')
         symbols = FilteredElementCollector(doc).OfClass(FamilySymbol).ToElements()
-        symbol = next((s for s in symbols if s.FamilyName == family_name and s.Name == type_name), None)
+        symbol = next((s for s in symbols if s.FamilyName == family_name and _safe_name(s) == type_name), None)
         if symbol is None:
             return Response(status_code=404, data={'error': "Type '{} : {}' not found".format(family_name, type_name)})
         level = None
         if level_name:
             for elem in FilteredElementCollector(doc).OfClass(Level):
-                if elem.Name == level_name:
+                if _safe_name(elem) == level_name:
                     level = elem
                     break
         location = XYZ(x, y, z)
@@ -200,4 +206,4 @@ def _get_routes(api):
         if not success:
             return Response(status_code=400, data={'error': "Failed to load family from '{}'".format(rfa_path)})
         fam = family.Value
-        return Response(data={'family_name': fam.Name, 'category': fam.FamilyCategory.Name if fam.FamilyCategory else None, 'type_count': fam.GetFamilySymbolIds().Count})
+        return Response(data={'family_name': _safe_name(fam), 'category': _safe_name(fam.FamilyCategory) if fam.FamilyCategory else None, 'type_count': fam.GetFamilySymbolIds().Count})

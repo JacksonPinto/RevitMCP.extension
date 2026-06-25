@@ -11,8 +11,8 @@ _uidoc = getattr(__revit__, 'ActiveUIDocument', None)
 doc = _uidoc.Document if _uidoc else None
 
 def _sheet_to_dict(sheet):
-    views_on_sheet = [{'viewport_id': _idv(vp.Id), 'view_name': doc.GetElement(vp.ViewId).Name} for vp in FilteredElementCollector(doc, sheet.Id).OfClass(Viewport)]
-    return {'element_id': _idv(sheet.Id), 'sheet_number': sheet.SheetNumber, 'sheet_name': sheet.Name, 'views': views_on_sheet}
+    views_on_sheet = [{'viewport_id': _idv(vp.Id), 'view_name': _safe_name(doc.GetElement(vp.ViewId))} for vp in FilteredElementCollector(doc, sheet.Id).OfClass(Viewport)]
+    return {'element_id': _idv(sheet.Id), 'sheet_number': sheet.SheetNumber, 'sheet_name': _safe_name(sheet), 'views': views_on_sheet}
 
 def _find_sheet(number):
     for s in FilteredElementCollector(doc).OfClass(ViewSheet):
@@ -29,7 +29,7 @@ def _unq(s):
         while i < len(s):
             if s[i] == '%' and i + 2 < len(s) + 1:
                 try:
-                    out.append(chr(int(s[i+1:i+3], 16)))
+                    out.append(chr(int(s[i + 1:i + 3], 16)))
                     i += 3
                     continue
                 except Exception:
@@ -56,8 +56,8 @@ def _qp(request):
                 if k is None and getattr(x, 'name', None) is not None:
                     k = x.name
                     v = getattr(x, 'value', None)
-                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
-                    k, v = x[0], x[1]
+                if k is None and isinstance(x, (list, tuple)) and (len(x) == 2):
+                    (k, v) = (x[0], x[1])
                 if k is not None:
                     out[str(k)] = v
         except Exception:
@@ -72,13 +72,13 @@ def _qp(request):
         if qs is None:
             for attr in ('uri', 'url', 'path'):
                 val = getattr(request, attr, None)
-                if val and isinstance(val, str) and '?' in val:
+                if val and isinstance(val, str) and ('?' in val):
                     qs = val.split('?', 1)[1]
                     break
         if qs:
             for pair in qs.split('&'):
                 if '=' in pair:
-                    k, v = pair.split('=', 1)
+                    (k, v) = pair.split('=', 1)
                     out[_unq(k)] = _unq(v)
     return out
 
@@ -88,6 +88,12 @@ def _idv(eid):
         return eid.Value
     except AttributeError:
         return eid.IntegerValue
+
+def _safe_name(el):
+    try:
+        return el.Name
+    except Exception:
+        return None
 
 def _get_routes(api):
 
@@ -99,7 +105,7 @@ def _get_routes(api):
         search = _qp(request).get('search', '').lower()
         results = []
         for s in FilteredElementCollector(doc).OfClass(ViewSheet):
-            if search and search not in s.SheetNumber.lower() and (search not in s.Name.lower()):
+            if search and search not in s.SheetNumber.lower() and (search not in _safe_name(s).lower()):
                 continue
             results.append(_sheet_to_dict(s))
         return Response(data=results)
@@ -129,7 +135,7 @@ def _get_routes(api):
                     tb_id = sym.Id
                     break
         else:
-            tb_types = [s for s in FilteredElementCollector(doc).OfClass(FamilySymbol) if s.Category and 'Title Block' in s.Category.Name]
+            tb_types = [s for s in FilteredElementCollector(doc).OfClass(FamilySymbol) if s.Category and 'Title Block' in _safe_name(s.Category)]
             if tb_types:
                 tb_id = tb_types[0].Id
         with Transaction(doc, 'MCP: Create Sheet') as t:
@@ -138,7 +144,7 @@ def _get_routes(api):
             sheet.SheetNumber = body['sheet_number']
             sheet.Name = body['sheet_name']
             t.Commit()
-        return Response(data={'element_id': _idv(sheet.Id), 'sheet_number': sheet.SheetNumber, 'sheet_name': sheet.Name})
+        return Response(data={'element_id': _idv(sheet.Id), 'sheet_number': sheet.SheetNumber, 'sheet_name': _safe_name(sheet)})
 
     @api.route('/sheets/create_bulk', methods=['POST'])
     def create_sheets_bulk(uiapp, request):
@@ -182,7 +188,7 @@ def _get_routes(api):
         if not sheet:
             return Response(status_code=404, data={'error': "Sheet '{}' not found".format(sheet_number)})
         from Autodesk.Revit.DB import View
-        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if v.Name == view_name), None)
+        view = next((v for v in FilteredElementCollector(doc).OfClass(View) if _safe_name(v) == view_name), None)
         if not view:
             return Response(status_code=404, data={'error': "View '{}' not found".format(view_name)})
         if auto_center:
@@ -208,7 +214,7 @@ def _get_routes(api):
         results = []
         for vp in FilteredElementCollector(doc, sheet.Id).OfClass(Viewport):
             v = doc.GetElement(vp.ViewId)
-            results.append({'viewport_id': _idv(vp.Id), 'view_name': v.Name if v else None, 'view_type': v.ViewType.ToString() if v else None})
+            results.append({'viewport_id': _idv(vp.Id), 'view_name': _safe_name(v) if v else None, 'view_type': v.ViewType.ToString() if v else None})
         return Response(data=results)
 
     @api.route('/sheets/remove_view', methods=['DELETE'])
@@ -220,7 +226,7 @@ def _get_routes(api):
         sheet = _find_sheet(body['sheet_number'])
         if not sheet:
             return Response(status_code=404, data={'error': 'Sheet not found'})
-        vp = next((v for v in FilteredElementCollector(doc, sheet.Id).OfClass(Viewport) if doc.GetElement(v.ViewId).Name == body['view_name']), None)
+        vp = next((v for v in FilteredElementCollector(doc, sheet.Id).OfClass(Viewport) if _safe_name(doc.GetElement(v.ViewId)) == body['view_name']), None)
         if not vp:
             return Response(status_code=404, data={'error': 'Viewport not found on sheet'})
         with Transaction(doc, 'MCP: Remove View from Sheet') as t:
@@ -270,6 +276,6 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         results = []
         for sym in FilteredElementCollector(doc).OfClass(FamilySymbol):
-            if sym.Category and 'Title Block' in sym.Category.Name:
-                results.append({'family_name': sym.FamilyName, 'type_name': sym.Name, 'element_id': _idv(sym.Id)})
+            if sym.Category and 'Title Block' in _safe_name(sym.Category):
+                results.append({'family_name': sym.FamilyName, 'type_name': _safe_name(sym), 'element_id': _idv(sym.Id)})
         return Response(data=results)

@@ -31,7 +31,7 @@ def _unq(s):
         while i < len(s):
             if s[i] == '%' and i + 2 < len(s) + 1:
                 try:
-                    out.append(chr(int(s[i+1:i+3], 16)))
+                    out.append(chr(int(s[i + 1:i + 3], 16)))
                     i += 3
                     continue
                 except Exception:
@@ -58,8 +58,8 @@ def _qp(request):
                 if k is None and getattr(x, 'name', None) is not None:
                     k = x.name
                     v = getattr(x, 'value', None)
-                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
-                    k, v = x[0], x[1]
+                if k is None and isinstance(x, (list, tuple)) and (len(x) == 2):
+                    (k, v) = (x[0], x[1])
                 if k is not None:
                     out[str(k)] = v
         except Exception:
@@ -74,13 +74,13 @@ def _qp(request):
         if qs is None:
             for attr in ('uri', 'url', 'path'):
                 val = getattr(request, attr, None)
-                if val and isinstance(val, str) and '?' in val:
+                if val and isinstance(val, str) and ('?' in val):
                     qs = val.split('?', 1)[1]
                     break
         if qs:
             for pair in qs.split('&'):
                 if '=' in pair:
-                    k, v = pair.split('=', 1)
+                    (k, v) = pair.split('=', 1)
                     out[_unq(k)] = _unq(v)
     return out
 
@@ -96,6 +96,12 @@ def _mkid(i):
     ambiguity with ElementId(BuiltInParameter)/(BuiltInCategory))."""
     import System
     return ElementId(System.Int64(i))
+
+def _safe_name(el):
+    try:
+        return el.Name
+    except Exception:
+        return None
 
 def _get_routes(api):
 
@@ -132,7 +138,7 @@ def _get_routes(api):
                     val = _idv(param.AsElementId())
                 else:
                     val = None
-                results.append({'name': param.Definition.Name, 'value': val, 'display_value': param.AsValueString(), 'storage_type': st, 'group': group, 'read_only': param.IsReadOnly})
+                results.append({'name': _safe_name(param.Definition), 'value': val, 'display_value': param.AsValueString(), 'storage_type': st, 'group': group, 'read_only': param.IsReadOnly})
             except Exception:
                 pass
         return Response(data=results)
@@ -212,7 +218,7 @@ def _get_routes(api):
             try:
                 st = param.StorageType.ToString()
                 val = param.AsString() if st == 'String' else param.AsDouble() if st == 'Double' else param.AsInteger() if st == 'Integer' else _idv(param.AsElementId())
-                results.append({'name': param.Definition.Name, 'value': val, 'display_value': param.AsValueString(), 'storage_type': st, 'read_only': param.IsReadOnly})
+                results.append({'name': _safe_name(param.Definition), 'value': val, 'display_value': param.AsValueString(), 'storage_type': st, 'read_only': param.IsReadOnly})
             except Exception:
                 pass
         return Response(data=results)
@@ -249,10 +255,10 @@ def _get_routes(api):
             binding = it.Current
             cats = []
             try:
-                cats = [c.Name for c in binding.Categories]
+                cats = [_safe_name(c) for c in binding.Categories]
             except Exception:
                 pass
-            results.append({'name': defn.Name, 'binding_type': binding.GetType().Name, 'data_type': str(defn.ParameterType) if hasattr(defn, 'ParameterType') else 'Unknown', 'categories': cats})
+            results.append({'name': _safe_name(defn), 'binding_type': _safe_name(binding.GetType()), 'data_type': str(defn.ParameterType) if hasattr(defn, 'ParameterType') else 'Unknown', 'categories': cats})
         return Response(data=results)
 
     @api.route('/parameters/bulk_update', methods=['POST'])
@@ -270,7 +276,7 @@ def _get_routes(api):
         with Transaction(doc, 'MCP: Bulk update {}'.format(param_name)) as t:
             t.Start()
             for elem in FilteredElementCollector(doc).WhereElementIsNotElementType():
-                if not (elem.Category and elem.Category.Name == category_name):
+                if not (elem.Category and _safe_name(elem.Category) == category_name):
                     continue
                 if level_name:
                     lvl_param = elem.LookupParameter('Level') or elem.LookupParameter('Reference Level')

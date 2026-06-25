@@ -16,7 +16,7 @@ def _unq(s):
         while i < len(s):
             if s[i] == '%' and i + 2 < len(s) + 1:
                 try:
-                    out.append(chr(int(s[i+1:i+3], 16)))
+                    out.append(chr(int(s[i + 1:i + 3], 16)))
                     i += 3
                     continue
                 except Exception:
@@ -43,8 +43,8 @@ def _qp(request):
                 if k is None and getattr(x, 'name', None) is not None:
                     k = x.name
                     v = getattr(x, 'value', None)
-                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
-                    k, v = x[0], x[1]
+                if k is None and isinstance(x, (list, tuple)) and (len(x) == 2):
+                    (k, v) = (x[0], x[1])
                 if k is not None:
                     out[str(k)] = v
         except Exception:
@@ -59,13 +59,13 @@ def _qp(request):
         if qs is None:
             for attr in ('uri', 'url', 'path'):
                 val = getattr(request, attr, None)
-                if val and isinstance(val, str) and '?' in val:
+                if val and isinstance(val, str) and ('?' in val):
                     qs = val.split('?', 1)[1]
                     break
         if qs:
             for pair in qs.split('&'):
                 if '=' in pair:
-                    k, v = pair.split('=', 1)
+                    (k, v) = pair.split('=', 1)
                     out[_unq(k)] = _unq(v)
     return out
 
@@ -76,6 +76,12 @@ def _idv(eid):
     except AttributeError:
         return eid.IntegerValue
 
+def _safe_name(el):
+    try:
+        return el.Name
+    except Exception:
+        return None
+
 def _get_routes(api):
 
     @api.route('/levels', methods=['GET'])
@@ -84,7 +90,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         levels = sorted(FilteredElementCollector(doc).OfClass(Level), key=lambda l: l.Elevation)
-        return Response(data=[{'element_id': _idv(l.Id), 'name': l.Name, 'elevation': l.Elevation} for l in levels])
+        return Response(data=[{'element_id': _idv(l.Id), 'name': _safe_name(l), 'elevation': l.Elevation} for l in levels])
 
     @api.route('/levels/by_name', methods=['GET'])
     def get_level(uiapp, request):
@@ -92,10 +98,10 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         name = _qp(request).get('level_name')
-        lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == name), None)
+        lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if _safe_name(l) == name), None)
         if not lvl:
             return Response(status_code=404, data={'error': "Level '{}' not found".format(name)})
-        return Response(data={'element_id': _idv(lvl.Id), 'name': lvl.Name, 'elevation': lvl.Elevation})
+        return Response(data={'element_id': _idv(lvl.Id), 'name': _safe_name(lvl), 'elevation': lvl.Elevation})
 
     @api.route('/levels/create', methods=['POST'])
     def create_level(uiapp, request):
@@ -109,7 +115,7 @@ def _get_routes(api):
             if body.get('level_name'):
                 lvl.Name = body['level_name']
             t.Commit()
-        return Response(data={'element_id': _idv(lvl.Id), 'name': lvl.Name, 'elevation': lvl.Elevation})
+        return Response(data={'element_id': _idv(lvl.Id), 'name': _safe_name(lvl), 'elevation': lvl.Elevation})
 
     @api.route('/levels/set_elevation', methods=['POST'])
     def set_elevation(uiapp, request):
@@ -117,7 +123,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         body = request.data
-        lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == body['level_name']), None)
+        lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if _safe_name(l) == body['level_name']), None)
         if not lvl:
             return Response(status_code=404, data={'error': 'Level not found'})
         old_elev = lvl.Elevation
@@ -133,7 +139,7 @@ def _get_routes(api):
         _ud = getattr(uiapp, 'ActiveUIDocument', None)
         doc = _ud.Document if _ud else None
         body = request.data
-        lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if l.Name == body['old_name']), None)
+        lvl = next((l for l in FilteredElementCollector(doc).OfClass(Level) if _safe_name(l) == body['old_name']), None)
         if not lvl:
             return Response(status_code=404, data={'error': 'Level not found'})
         with Transaction(doc, 'MCP: Rename Level') as t:
@@ -152,7 +158,7 @@ def _get_routes(api):
             curve = g.Curve
             s = curve.GetEndPoint(0)
             e = curve.GetEndPoint(1)
-            results.append({'element_id': _idv(g.Id), 'name': g.Name, 'start': {'x': s.X, 'y': s.Y, 'z': s.Z}, 'end': {'x': e.X, 'y': e.Y, 'z': e.Z}})
+            results.append({'element_id': _idv(g.Id), 'name': _safe_name(g), 'start': {'x': s.X, 'y': s.Y, 'z': s.Z}, 'end': {'x': e.X, 'y': e.Y, 'z': e.Z}})
         return Response(data=results)
 
     @api.route('/grids/create', methods=['POST'])
@@ -170,4 +176,4 @@ def _get_routes(api):
             if body.get('grid_name'):
                 grid.Name = body['grid_name']
             t.Commit()
-        return Response(data={'element_id': _idv(grid.Id), 'name': grid.Name})
+        return Response(data={'element_id': _idv(grid.Id), 'name': _safe_name(grid)})

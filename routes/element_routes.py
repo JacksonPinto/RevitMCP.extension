@@ -31,7 +31,7 @@ def _safe_name(el):
 
 def _safe_cat(elem):
     try:
-        return elem.Category.Name if elem.Category else None
+        return _safe_name(elem.Category) if elem.Category else None
     except Exception:
         return None
 
@@ -66,7 +66,7 @@ def _unq(s):
         while i < len(s):
             if s[i] == '%' and i + 2 < len(s) + 1:
                 try:
-                    out.append(chr(int(s[i+1:i+3], 16)))
+                    out.append(chr(int(s[i + 1:i + 3], 16)))
                     i += 3
                     continue
                 except Exception:
@@ -93,8 +93,8 @@ def _qp(request):
                 if k is None and getattr(x, 'name', None) is not None:
                     k = x.name
                     v = getattr(x, 'value', None)
-                if k is None and isinstance(x, (list, tuple)) and len(x) == 2:
-                    k, v = x[0], x[1]
+                if k is None and isinstance(x, (list, tuple)) and (len(x) == 2):
+                    (k, v) = (x[0], x[1])
                 if k is not None:
                     out[str(k)] = v
         except Exception:
@@ -109,13 +109,13 @@ def _qp(request):
         if qs is None:
             for attr in ('uri', 'url', 'path'):
                 val = getattr(request, attr, None)
-                if val and isinstance(val, str) and '?' in val:
+                if val and isinstance(val, str) and ('?' in val):
                     qs = val.split('?', 1)[1]
                     break
         if qs:
             for pair in qs.split('&'):
                 if '=' in pair:
-                    k, v = pair.split('=', 1)
+                    (k, v) = pair.split('=', 1)
                     out[_unq(k)] = _unq(v)
     return out
 
@@ -157,7 +157,7 @@ def _get_routes(api):
                     val = param.AsInteger()
                 elif param.StorageType.ToString() == 'ElementId':
                     val = _idv(param.AsElementId())
-                params_list.append({'name': param.Definition.Name, 'value': val, 'storage_type': param.StorageType.ToString(), 'read_only': param.IsReadOnly, 'group': param.Definition.ParameterGroup.ToString() if hasattr(param.Definition, 'ParameterGroup') else None})
+                params_list.append({'name': _safe_name(param.Definition), 'value': val, 'storage_type': param.StorageType.ToString(), 'read_only': param.IsReadOnly, 'group': param.Definition.ParameterGroup.ToString() if hasattr(param.Definition, 'ParameterGroup') else None})
             except Exception:
                 pass
         d['parameters'] = params_list
@@ -175,7 +175,7 @@ def _get_routes(api):
         collector = FilteredElementCollector(doc).WhereElementIsNotElementType()
         results = []
         for elem in collector:
-            if elem.Category and elem.Category.Name == category_name:
+            if elem.Category and _safe_name(elem.Category) == category_name:
                 d = _elem_to_dict(elem)
                 if level_name:
                     lvl = d.get('level')
@@ -185,7 +185,7 @@ def _get_routes(api):
         if include_types:
             type_collector = FilteredElementCollector(doc).WhereElementIsElementType()
             for elem in type_collector:
-                if elem.Category and elem.Category.Name == category_name:
+                if elem.Category and _safe_name(elem.Category) == category_name:
                     results.append(_elem_to_dict(elem))
         return Response(data=results)
 
@@ -198,7 +198,7 @@ def _get_routes(api):
         category = _unq(category)
         results = []
         for elem in FilteredElementCollector(doc).WhereElementIsNotElementType():
-            if elem.Category and elem.Category.Name == category:
+            if elem.Category and _safe_name(elem.Category) == category:
                 results.append(_elem_to_dict(elem))
         return Response(data={'category': category, 'count': len(results), 'elements': results})
 
@@ -212,10 +212,10 @@ def _get_routes(api):
         counts = {}
         for elem in FilteredElementCollector(doc, av.Id).WhereElementIsNotElementType():
             if elem.Category:
-                n = elem.Category.Name
+                n = _safe_name(elem.Category)
                 counts[n] = counts.get(n, 0) + 1
         cats = [{'category': k, 'count': v} for (k, v) in sorted(counts.items(), key=lambda kv: -kv[1])]
-        return Response(data={'active_view': av.Name, 'view_id': _idv(av.Id), 'category_count': len(cats), 'categories': cats})
+        return Response(data={'active_view': _safe_name(av), 'view_id': _idv(av.Id), 'category_count': len(cats), 'categories': cats})
 
     @api.route('/active_view/category/<category>', methods=['GET'])
     def get_active_view_category(uiapp, category):
@@ -227,9 +227,9 @@ def _get_routes(api):
         av = doc.ActiveView
         results = []
         for elem in FilteredElementCollector(doc, av.Id).WhereElementIsNotElementType():
-            if elem.Category and elem.Category.Name == category:
+            if elem.Category and _safe_name(elem.Category) == category:
                 results.append(_elem_to_dict(elem))
-        return Response(data={'active_view': av.Name, 'category': category, 'count': len(results), 'elements': results})
+        return Response(data={'active_view': _safe_name(av), 'category': category, 'count': len(results), 'elements': results})
 
     @api.route('/elements/by_type/<int:type_id>', methods=['GET'])
     def get_elements_by_type(uiapp, type_id):
@@ -260,7 +260,7 @@ def _get_routes(api):
         results = []
         collector = FilteredElementCollector(doc).WhereElementIsNotElementType()
         for elem in collector:
-            if not (elem.Category and elem.Category.Name == category_name):
+            if not (elem.Category and _safe_name(elem.Category) == category_name):
                 continue
             param = elem.LookupParameter(param_name)
             if param is None:
@@ -309,8 +309,8 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         uidoc = _ud
         category_name = _qp(request).get('category')
-        instance_count = sum((1 for e in FilteredElementCollector(doc).WhereElementIsNotElementType() if e.Category and e.Category.Name == category_name))
-        type_count = sum((1 for e in FilteredElementCollector(doc).WhereElementIsElementType() if e.Category and e.Category.Name == category_name))
+        instance_count = sum((1 for e in FilteredElementCollector(doc).WhereElementIsNotElementType() if e.Category and _safe_name(e.Category) == category_name))
+        type_count = sum((1 for e in FilteredElementCollector(doc).WhereElementIsElementType() if e.Category and _safe_name(e.Category) == category_name))
         return Response(data={'category': category_name, 'instance_count': instance_count, 'type_count': type_count})
 
     @api.route('/elements', methods=['DELETE'])
