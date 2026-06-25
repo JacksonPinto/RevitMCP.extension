@@ -33,6 +33,37 @@ def _unq(s):
     except Exception:
         return s
 
+def _spatial_dict(el):
+    """Robust room/space summary (2026-safe): number, name, level, area via params."""
+    BIP = Autodesk.Revit.DB.BuiltInParameter
+    def _ps(bip):
+        try:
+            p = el.get_Parameter(bip)
+            return p.AsString() if p else None
+        except Exception:
+            return None
+    num = _ps(BIP.ROOM_NUMBER)
+    if not num:
+        try:
+            num = el.Number
+        except Exception:
+            num = None
+    name = _ps(BIP.ROOM_NAME)
+    if not name:
+        try:
+            name = el.Name
+        except Exception:
+            name = None
+    try:
+        lvl = el.Level.Name if el.Level else None
+    except Exception:
+        lvl = None
+    try:
+        area = el.Area
+    except Exception:
+        area = None
+    return {'element_id': _idv(el.Id), 'number': num, 'name': name, 'level': lvl, 'area': area}
+
 def _qp(request):
     """Best-effort query/route params as a dict. Handles: dict; list of objects
     with .key/.value or .name/.value; list of (key,value) pairs; or a raw query
@@ -177,9 +208,23 @@ def _get_routes(api):
         doc = _ud.Document if _ud else None
         av = doc.ActiveView
         results = []
-        try:
-            for space in FilteredElementCollector(doc, av.Id).WherePasses(SpaceFilter()):
-                results.append({'element_id': _idv(space.Id), 'number': space.Number, 'name': space.Name, 'level': space.Level.Name if space.Level else None, 'area': space.Area})
-        except Exception as ex:
-            return Response(data={'active_view': av.Name, 'error': str(ex), 'count': 0, 'spaces': []})
+        for space in FilteredElementCollector(doc, av.Id).WherePasses(SpaceFilter()):
+            try:
+                results.append(_spatial_dict(space))
+            except Exception:
+                pass
         return Response(data={'active_view': av.Name, 'count': len(results), 'spaces': results})
+
+    @api.route('/rooms/active_view', methods=['GET'])
+    def list_rooms_active_view(uiapp):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        av = doc.ActiveView
+        results = []
+        for room in FilteredElementCollector(doc, av.Id).WherePasses(RoomFilter()):
+            try:
+                results.append(_spatial_dict(room))
+            except Exception:
+                pass
+        return Response(data={'active_view': av.Name, 'count': len(results), 'rooms': results})
