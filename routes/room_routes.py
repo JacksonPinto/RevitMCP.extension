@@ -64,6 +64,65 @@ def _spatial_dict(el):
         area = None
     return {'element_id': _idv(el.Id), 'number': num, 'name': name, 'level': lvl, 'area': area}
 
+def _safe_cat2(elem):
+    try:
+        return elem.Category.Name if elem.Category else None
+    except Exception:
+        return None
+
+def _loc_point(elem):
+    """Representative XYZ for an element: location point, curve midpoint, or bbox centre."""
+    try:
+        loc = elem.Location
+        if loc is not None:
+            from Autodesk.Revit.DB import LocationPoint, LocationCurve
+            if isinstance(loc, LocationPoint):
+                return loc.Point
+            if isinstance(loc, LocationCurve):
+                c = loc.Curve
+                a = c.GetEndPoint(0)
+                b = c.GetEndPoint(1)
+                return XYZ((a.X + b.X) / 2.0, (a.Y + b.Y) / 2.0, (a.Z + b.Z) / 2.0)
+    except Exception:
+        pass
+    try:
+        bb = elem.get_BoundingBox(None)
+        if bb is not None:
+            return XYZ((bb.Min.X + bb.Max.X) / 2.0, (bb.Min.Y + bb.Max.Y) / 2.0, (bb.Min.Z + bb.Max.Z) / 2.0)
+    except Exception:
+        pass
+    return None
+
+def _el_brief(elem):
+    nm = None
+    try:
+        nm = elem.Name
+    except Exception:
+        pass
+    tnm = None
+    try:
+        t = doc.GetElement(elem.GetTypeId())
+        if t is not None:
+            try:
+                tnm = t.Name
+            except Exception:
+                tnm = None
+    except Exception:
+        pass
+    return {'element_id': _idv(elem.Id), 'category': _safe_cat2(elem), 'name': nm, 'type_name': tnm}
+
+def _near_candidates(spatial):
+    """Fast bbox prefilter: elements whose bounding box is near the room/space."""
+    coll = FilteredElementCollector(doc).WhereElementIsNotElementType()
+    try:
+        from Autodesk.Revit.DB import Outline, BoundingBoxIntersectsFilter
+        bb = spatial.get_BoundingBox(None)
+        if bb is not None:
+            coll = coll.WherePasses(BoundingBoxIntersectsFilter(Outline(bb.Min, bb.Max)))
+    except Exception:
+        pass
+    return coll
+
 def _qp(request):
     """Best-effort query/route params as a dict. Handles: dict; list of objects
     with .key/.value or .name/.value; list of (key,value) pairs; or a raw query
@@ -225,3 +284,99 @@ def _get_routes(api):
             except Exception:
                 pass
         return Response(data={'active_view': av.Name, 'count': len(results), 'rooms': results})
+
+    @api.route('/spaces/<int:space_id>/contents', methods=['GET'])
+    def space_contents(uiapp, space_id):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        space = doc.GetElement(ElementId(space_id))
+        if space is None:
+            return Response(status_code=404, data={'error': 'Space not found'})
+        counts = {}
+        total = 0
+        for elem in _near_candidates(space):
+            pt = _loc_point(elem)
+            if pt is None:
+                continue
+            try:
+                inside = space.IsPointInSpace(pt)
+            except Exception:
+                inside = False
+            if inside:
+                c = _safe_cat2(elem) or 'Unknown'
+                counts[c] = counts.get(c, 0) + 1
+                total += 1
+        cats = [{'category': k, 'count': v} for (k, v) in sorted(counts.items(), key=lambda kv: -kv[1])]
+        return Response(data={'space': _spatial_dict(space), 'total': total, 'by_category': cats})
+
+    @api.route('/spaces/<int:space_id>/contents/<category>', methods=['GET'])
+    def space_contents_category(uiapp, space_id, category):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        category = _unq(category)
+        space = doc.GetElement(ElementId(space_id))
+        if space is None:
+            return Response(status_code=404, data={'error': 'Space not found'})
+        results = []
+        for elem in _near_candidates(space):
+            if _safe_cat2(elem) != category:
+                continue
+            pt = _loc_point(elem)
+            if pt is None:
+                continue
+            try:
+                if space.IsPointInSpace(pt):
+                    results.append(_el_brief(elem))
+            except Exception:
+                pass
+        return Response(data={'space_id': space_id, 'category': category, 'count': len(results), 'elements': results})
+
+    @api.route('/rooms/<int:room_id>/contents', methods=['GET'])
+    def room_contents(uiapp, room_id):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        room = doc.GetElement(ElementId(room_id))
+        if room is None:
+            return Response(status_code=404, data={'error': 'Room not found'})
+        counts = {}
+        total = 0
+        for elem in _near_candidates(room):
+            pt = _loc_point(elem)
+            if pt is None:
+                continue
+            try:
+                inside = room.IsPointInRoom(pt)
+            except Exception:
+                inside = False
+            if inside:
+                c = _safe_cat2(elem) or 'Unknown'
+                counts[c] = counts.get(c, 0) + 1
+                total += 1
+        cats = [{'category': k, 'count': v} for (k, v) in sorted(counts.items(), key=lambda kv: -kv[1])]
+        return Response(data={'room': _spatial_dict(room), 'total': total, 'by_category': cats})
+
+    @api.route('/rooms/<int:room_id>/contents/<category>', methods=['GET'])
+    def room_contents_category(uiapp, room_id, category):
+        global doc
+        _ud = getattr(uiapp, 'ActiveUIDocument', None)
+        doc = _ud.Document if _ud else None
+        category = _unq(category)
+        room = doc.GetElement(ElementId(room_id))
+        if room is None:
+            return Response(status_code=404, data={'error': 'Room not found'})
+        results = []
+        for elem in _near_candidates(room):
+            if _safe_cat2(elem) != category:
+                continue
+            pt = _loc_point(elem)
+            if pt is None:
+                continue
+            try:
+                if room.IsPointInRoom(pt):
+                    results.append(_el_brief(elem))
+            except Exception:
+                pass
+        return Response(data={'room_id': room_id, 'category': category, 'count': len(results), 'elements': results})
