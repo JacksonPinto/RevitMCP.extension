@@ -41,9 +41,17 @@ def _get_routes(api):
         except Exception as ex:
             items = [{'error': str(ex)}]
         info['items'] = items
-        for attr in ('path', 'query', 'query_string', 'uri', 'url'):
-            info[attr] = repr(getattr(request, attr, '<none>'))[:300]
-        info['parsed_qp'] = _qp(request)
+        allattrs = {}
+        for a in dir(request):
+            if a.startswith('_'):
+                continue
+            try:
+                v = getattr(request, a)
+            except Exception as e:
+                allattrs[a] = 'ERR:' + str(e)
+                continue
+            allattrs[a] = '<callable>' if callable(v) else repr(v)[:300]
+        info['all_attrs'] = allattrs
         return Response(data=info)
     """Register all project-related routes on the provided API object."""
 
